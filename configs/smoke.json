@@ -1,0 +1,6 @@
+{
+  "mode": "smoke", "sources": [{"date":"2024-04-01","role":"train","seed":42}],
+  "branch_hours": [26], "candidate_count": 3, "candidate_seed": 42,
+  "preference_anchors": [[0.25,0.25,0.25,0.25],[0.05,0.85,0.05,0.05]],
+  "v2g_participation": 0.5
+}

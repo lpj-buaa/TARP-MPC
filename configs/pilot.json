@@ -1,0 +1,13 @@
+{
+ "mode":"pilot",
+ "sources":[
+  {"date":"2024-04-01","role":"train","seed":42},
+  {"date":"2024-04-15","role":"tune","seed":43},
+  {"date":"2024-05-20","role":"meta_train","seed":44},
+  {"date":"2024-06-03","role":"meta_tune","seed":45},
+  {"date":"2024-05-06","role":"cal","seed":46},
+  {"date":"2024-06-17","role":"confirm","seed":47}
+ ],
+ "branch_hours":[32],"candidate_count":4,"candidate_seed":42,
+ "preference_anchors":[[0.25,0.25,0.25,0.25],[0.05,0.85,0.05,0.05]],"v2g_participation":0.5
+}

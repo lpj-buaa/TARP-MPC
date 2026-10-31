@@ -1,0 +1,1 @@
+{"seed":42,"width":64,"epochs":40,"patience":8,"learning_rate":0.001,"groups_per_batch":4,"torch_threads":1,"budget":0.05,"query_episodes":12}
