@@ -50,6 +50,8 @@ def initialize(root,config,inputs,resume=False):
     write(root/'audit/contract.json',PhysicalContract.load().manifest())
     from .data import ForecastTrace
     write(root/'audit/renewable_scenario.json',ForecastTrace().reference)
+    from .network import UnifiedNetwork
+    write(root/'audit/operating_economics.json',UnifiedNetwork().economics())
     stamp(root/'audit',inputs,rl_training_calls=0,old_expert_training_calls=0)
     return False
 

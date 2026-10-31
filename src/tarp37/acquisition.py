@@ -10,6 +10,7 @@ import json
 import subprocess
 import sys
 import os
+import re
 import numpy as np
 import torch
 from torch import nn
@@ -62,16 +63,41 @@ def physical_action(action,ctx,hardware):
     return p
 
 
+def normalized_action(power,ctx,hardware):
+    """Only replay actions with an exact inverse in this acquisition domain."""
+    power=np.asarray(power); hi,lo=action_bounds(ctx,hardware)
+    denom=np.where(power>=0,hi,lo)
+    a=np.divide(power,denom,out=np.zeros(51),where=denom>1e-9)
+    a[37:47]=np.divide(power[37:47],hi[37:47],out=np.zeros(10),where=hi[37:47]>1e-9)*2-1
+    if np.max(np.abs(a))>1+1e-7: return None
+    a=np.clip(a,-1,1)
+    return a if np.allclose(physical_action(a,ctx,hardware),power,rtol=0.,atol=1e-7) else None
+
+
 def actor_state(ctx,scalers):
     f=transform_context(ctx,np.zeros(51),scalers)
     return np.concatenate([f[k].reshape(-1) for k in ['nodes','history','forecast','context','initial_resource','initial_response','initial_weight']]).astype(np.float32)
 
 
 def acquire(data_run,run_id,config,device='auto',policy='td3',episodes=12,resume=False):
+    if any(not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,100}',v) for v in [data_run,run_id]): raise ValueError('Invalid RunId')
     root=PROJECT/'artifacts/retraining'/run_id; out=root/'explore'; marker=out/'complete.json'
-    if marker.exists(): verify(read(marker)); print('explore: reused verified queries',flush=True); return
+    protocol_path=root/'protocol.json'
+    if protocol_path.exists():
+        run_protocol=read(protocol_path)
+        if run_protocol.get('data_run')!=data_run or run_protocol.get('config')!=config:
+            raise ValueError('Training protocol changed; use a new learning RunId')
+        verify(dict(inputs=run_protocol['inputs'],outputs={}))
+    if marker.exists():
+        saved=read(marker)
+        if saved.get('data_run')!=data_run or saved.get('policy')!=policy or saved.get('episodes')!=episodes or saved.get('acquisition_config')!=config:
+            raise ValueError('Acquisition configuration changed; use a new RunId')
+        verify(saved); print('explore: reused verified queries',flush=True); return
     if out.exists() and not resume: raise ValueError('Acquisition exists; use Resume or a new RunId')
     out.mkdir(parents=True,exist_ok=True); queries=out/'queries'; proposals=out/'proposals'; queries.mkdir(exist_ok=True); proposals.mkdir(exist_ok=True)
+    protocol=out/'protocol.json'; requested=dict(data_run=data_run,config=config,policy=policy,episodes=episodes)
+    if protocol.exists() and read(protocol)!=requested: raise ValueError('Acquisition configuration changed; use a new RunId')
+    write(protocol,requested)
     packed=load_packed(root/'pack_initial'); checkpoint=root/'fit_initial/checkpoint.pt'
     saved=torch.load(checkpoint,map_location='cpu',weights_only=False); device=resolve_device(device); torch.set_num_threads(1)
     model=ConsequenceStudent(saved['schema'],saved['decoder'],saved['width']).to(device); model.load_state_dict(saved['state_dict']); model.eval()
@@ -82,7 +108,8 @@ def acquire(data_run,run_id,config,device='auto',policy='td3',episodes=12,resume
     if not reference: raise ValueError('Training-source native pools are required')
     hardware=packed['schema']['station_power_envelope_mw']; seed=int(config.get('seed',42)); rng=np.random.default_rng(seed)
     agent=AcquisitionTD3(len(actor_state(reference[0]['context'],packed['scalers'])),device,seed)
-    references={(r['source_id'],r['pool_hour'],r['profile_id']):r for r in reference}; seen=set(); logs=[]
+    references={(r['source_id'],r['pool_hour'],r['profile_id']):r for r in reference}
+    training_signatures={tuple(r['event']) for r in records if r['role']=='train'}; logs=[]
     def predict(record):
         features=transform_context(record['context'],record['context']['candidate_mw'],packed['scalers'])
         with torch.no_grad(): return model({k:torch.as_tensor(v,device=device) for k,v in features.items()})['outcome'].cpu().numpy()[0]
@@ -94,17 +121,19 @@ def acquire(data_run,run_id,config,device='auto',policy='td3',episodes=12,resume
         delta=(t['outcome']-rt['outcome'])/scale
         predicted=predict(record)-ref_predictions[key]
         error=float(np.mean(np.abs(predicted[mask]-delta[mask]))) if mask.any() else 0.
-        signature=tuple(record['event']); novel=signature not in seen; seen.add(signature)
+        # Fixed initial experience library keeps this one-decision reward
+        # stationary; query order does not silently change the target value.
+        signature=tuple(record['event']); novel=signature not in training_signatures
         return min(error,5.)+.25*novel-.25*(1-mask.mean()),error
     # Seed replay uses existing training branches only; no extra simulator calls.
     for record in records:
         if record['role']!='train': continue
         key=(record['source_id'],record['pool_hour'],record['profile_id'])
         if key not in references: continue
-        reward,_=utility(record); hi,lo=action_bounds(record['context'],hardware); power=np.array(record['context']['candidate_mw'])
-        action=np.divide(power,np.where(power>=0,hi,lo),out=np.zeros(51),where=np.where(power>=0,hi,lo)>1e-9)
-        action[37:47]=np.divide(power[37:47],hi[37:47],out=np.zeros(10),where=hi[37:47]>1e-9)*2-1
-        agent.add(actor_state(record['context'],packed['scalers']),np.clip(action,-1,1),reward)
+        action=normalized_action(record['context']['candidate_mw'],record['context'],hardware)
+        if action is None: continue
+        reward,_=utility(record)
+        agent.add(actor_state(record['context'],packed['scalers']),action,reward)
     for _ in range(200): agent.update()
     from scipy.stats import qmc
     points=qmc.Sobol(51,scramble=True,seed=seed).random_base2(int(np.ceil(np.log2(max(episodes,1)))))[:episodes]*2-1
@@ -131,10 +160,8 @@ def acquire(data_run,run_id,config,device='auto',policy='td3',episodes=12,resume
         record=read(result); reward,error=utility(record)
         # An interrupted run reuses the action actually queried, not a newly
         # sampled actor action associated with an old cached reward.
-        executed=np.array(record['context']['candidate_mw']); hi,lo=action_bounds(ref['context'],hardware)
-        action=np.divide(executed,np.where(executed>=0,hi,lo),out=np.zeros(51),where=np.where(executed>=0,hi,lo)>1e-9)
-        action[37:47]=np.divide(executed[37:47],hi[37:47],out=np.zeros(10),where=hi[37:47]>1e-9)*2-1
-        action=np.clip(action,-1,1)
+        action=normalized_action(record['context']['candidate_mw'],ref['context'],hardware)
+        if action is None: raise ValueError('Queried action does not match the acquisition action domain')
         if policy=='td3':
             agent.add(state,action,reward)
             for _ in range(50): agent.update()
@@ -144,5 +171,5 @@ def acquire(data_run,run_id,config,device='auto',policy='td3',episodes=12,resume
                     state_dim=len(state),schema='one_intervention_terminal_acquisition_gamma0',policy=policy),out/'acquisition.pt')
     write(out/'queries_summary.json',logs)
     verify(dict(inputs=inputs,outputs={}))
-    stamp(out,inputs,policy=policy,episodes=episodes,new_acquisition_training_calls=int(policy=='td3'),
+    stamp(out,inputs,data_run=data_run,policy=policy,episodes=episodes,acquisition_config=config,new_acquisition_training_calls=int(policy=='td3'),
           old_rl_training_calls=0,old_expert_training_calls=0)

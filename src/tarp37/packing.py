@@ -84,6 +84,8 @@ def _fit(values,mask=None):
 
 def pack_records(records,output):
     output=Path(output); output.mkdir(parents=True,exist_ok=True)
+    if any(r['context'].get('physics_version')!=VERSION for r in records):
+        raise ValueError('Different physical/operating contract; regenerate trajectories before retraining')
     features=[visible_features(r['context'],r['context']['candidate_mw']) for r in records]
     targets=[raw_targets(r) for r in records]
     arrays={k:np.stack([f[k] for f in features]).astype(np.float32) for k in INPUTS}
@@ -105,8 +107,15 @@ def pack_records(records,output):
         station_power_envelope_mw=c.station_power_envelope_mw.tolist(),
         physics_version=VERSION,risk_contract=RISK_VERSION,risk_names=['Voltage','NetworkCapacity','ChargingService','RenewableCurtailment'],
         model_provenance='Existing ConsequenceStudent graph/Transformer/GRU architecture; realized first-hour response learned instead of forced allocation')
+    support={}
+    for role in sorted({m['role'] for m in metadata}):
+        idx=np.array([m['role']==role for m in metadata])
+        support[role]=dict(rows=int(idx.sum()),sources=len({m['source_id'] for m in metadata if m['role']==role}),risks={})
+        for j,name in enumerate(schema['risk_names']):
+            known=arrays['event_mask'][idx,j]; positive=arrays['event'][idx,j]>.5
+            support[role]['risks'][name]=dict(positive=int((known&positive).sum()),negative=int((known&~positive).sum()),unknown=int((~known).sum()))
     np.savez_compressed(output/'packed.npz',**arrays)
-    for name,value in [('metadata',metadata),('schema',schema),('scalers',scalers)]:
+    for name,value in [('metadata',metadata),('schema',schema),('scalers',scalers),('label_support',support)]:
         (output/(name+'.json')).write_text(json.dumps(value,ensure_ascii=False,indent=2,allow_nan=False),encoding='utf-8')
     return load_packed(output)
 

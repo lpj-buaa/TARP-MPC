@@ -12,4 +12,12 @@ Ruling: 四头中的电气风险明确为预防配额下、真实交付后、有
 
 unified37_smoke_s42_v1在审查时停止，保留为未完成诊断，不作最终结果。修正版unified37_smoke_s42_v2启动；26h MPC前序，3行动×2偏好×6h，5000EV原始出行文件。日志在artifacts/logs。运行期间冻结物理import closure；新增学习/文档模块可以并行编写，但不改冻结物理代码。
 
-剩余：完成小规模闭环、Resume核验、重训适配与实际命令、最终结果/文档；南京既有修复后交通和EIA回放完成，车辆侧V2G资源过大触发旧base_overlay不能表达全网净发电，需要显式记录网络吸收/出口限制，不能强制绕过原生Pmin。
+以上为早期实施记录；下列是当前交付状态。
+
+2026-10-31最终：unified37_smoke_s42_v4完成26h暖启动+36h分支，62/62 AC有效。原生费用归一化修正为2278.895，AC损耗正则单列；不用旧v2/v3风险数据训练。真实query接口重现6h配对分支，功率误差2.22e-16 MW，电压1.40e-14 pu。采集Resume通过全部冻结输入校验，旧RL与专家无训练。
+
+重训代码已具备：train-only scaler和支持度；图/Transformer/GRU后果学习；gamma0一次干预双critic采样器；真实原生查询；新专家与matched state-only；独立meta浅树证据融合；source-macro OR FPR校准；完整复合召回与source bootstrap。六角色synthetic全阶段与Resume已运行验证，真实6行也已packing；正式经验训练留给用户命令执行。
+
+审查闭合：超动作域的seed不再裁剪偷换奖励；查询重试用独立attempt；数据RunId/config/code/source根协议冻结；每个训练/预测阶段绑定packed路径与seal，避免增采样后复用不同scaler旧专家。对应回归均已验证。当前文档README、RETRAINING_EXECUTION_CN及SMALL_LOOP_RESULTS_CN为交付入口。
+
+南京：已完成原始100k交通修复、EIA24小时回放和signed V2G空间注入重核验。19点中18个AC有效、1个未知；原始Pmin和容量不绕过。新主项目的南京MPC/四风险迁移仍是后续规模实验，未标记为已完成。

@@ -9,7 +9,7 @@ from .assets import activate, CASE, TRAFFIC_SOURCE, sha
 activate()
 from native_grid.case import CaseInventory
 
-VERSION = 'native37_pq_ac_0p9ka_v1'
+VERSION = 'native37_pq_ac_0p9ka_economics_v3'
 RISK_VERSION = 'four_physical_risks_0p93_1p07_v3'
 RISK_NAMES = ['Voltage', 'NetworkCapacity', 'ChargingService', 'RenewableCurtailment']
 

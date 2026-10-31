@@ -45,7 +45,29 @@ class UnifiedNetwork:
         self.x_voltage = self.downstream.T@np.diag([l['x_ohm'] for l in self.case.lines])@self.downstream/self.case.base_kv**2
         native = Grid.fromFileXML(str(self.case.grid_file))
         self.costs = {g.ID:(g.CostA(0)/native.Sb_MVA**2,g.CostB(0)/native.Sb_MVA,g.CostC(0)) for g in native.Gens}
+        # The native curves are 500 P^2 + 1000 P + 10 in this case. Restoring
+        # them while retaining an old ~30/MWh cost scale would starve service.
+        # Reference uses independent normal-load commissioning, not test labels.
+        typical=(float(mean.sum())+57.663/24)/len(self.gen)
+        self.cost_scale=float(np.median([2*a*typical+b for a,b,z in self.costs.values()]))
+        maximum=max(2*self.costs[g['id']][0]*g['pmax_mw']+self.costs[g['id']][1] for g in self.gen)
+        self.backup_unit_cost=5*maximum
+        self.shed_unit_cost=20*maximum
+        self.curtail_unit_cost=.2*self.cost_scale
+        # With fixed delivered load, a common marginal charge on every source
+        # equals this coefficient times AC losses plus a constant. It prevents
+        # negative renewable marginal costs from rewarding dissipation. This is
+        # an executor regularizer, not extra purchased energy or a risk score.
+        self.ac_loss_unit_value=self.cost_scale
         self.calls = 0
+
+    def economics(self):
+        return dict(cost_scale=self.cost_scale,backup_cost_per_mwh=self.backup_unit_cost,
+            non_EV_shed_cost_per_mwh=self.shed_unit_cost,curtail_cost_per_mwh=self.curtail_unit_cost,
+            executor_ac_loss_regularization_per_mwh=self.ac_loss_unit_value,
+            loss_scope='fixed-delivery AC refinement only; excluded from monetary operating cost; not a charging charge in lossless MPC',
+            native_generator_costs=self.costs,units='native cost units, not claimed measured RMB or CAISO dollars',
+            reference='native average load + independent 57.663MWh/day EV commissioning, equally shared across10 native units')
 
     def injections(self, exo, power, base_fraction=1.):
         base = self.load_share*float(exo[0])*base_fraction
@@ -77,7 +99,7 @@ class UnifiedNetwork:
             if constrained:
                 a,b,z=self.costs[g['id']]
                 factor=max(float(exo[3]),1.)/30. if kind=='ext_grid' else 1.
-                pp.create_poly_cost(net,ident,kind,cp0_eur=z,cp1_eur_per_mw=b*factor,cp2_eur_per_mw2=a*factor)
+                pp.create_poly_cost(net,ident,kind,cp0_eur=z,cp1_eur_per_mw=b*factor+self.ac_loss_unit_value,cp2_eur_per_mw2=a*factor)
             conventional.append((g,kind,ident))
         renew=[]
         for source,shares,available in [('wind',self.wind_share,exo[1]),('solar',self.solar_share,exo[2])]:
@@ -86,7 +108,7 @@ class UnifiedNetwork:
                 if cap<=1e-10: continue
                 i=pp.create_sgen(net,bus,p_mw=0. if constrained else cap,q_mvar=0.,controllable=constrained,
                     min_p_mw=0.,max_p_mw=cap,min_q_mvar=0.,max_q_mvar=0.,name=source+'_'+self.bus_ids[bus])
-                if constrained: pp.create_poly_cost(net,i,'sgen',cp1_eur_per_mw=-200.)
+                if constrained: pp.create_poly_cost(net,i,'sgen',cp1_eur_per_mw=self.ac_loss_unit_value-self.curtail_unit_cost)
                 renew.append((source,int(bus),i,cap))
         backups=[]
         if constrained:
@@ -94,7 +116,7 @@ class UnifiedNetwork:
                 bus=int(np.argmax(self.backup_map[:,j])); cap=min(c.backup_power_mw,max(float(backup_remaining[j]),0.))
                 i=pp.create_sgen(net,bus,p_mw=0.,q_mvar=0.,controllable=True,min_p_mw=0.,max_p_mw=cap,
                     min_q_mvar=0.,max_q_mvar=0.,name='finite_backup_'+str(j))
-                pp.create_poly_cost(net,i,'sgen',cp1_eur_per_mw=5000.); backups.append((bus,i))
+                pp.create_poly_cost(net,i,'sgen',cp1_eur_per_mw=self.backup_unit_cost+self.ac_loss_unit_value); backups.append((bus,i))
         return net,conventional,renew,backups,base,q,dev
 
     def _read(self, net, conventional, renew, backups, base, q, dev):
@@ -166,12 +188,14 @@ class UnifiedNetwork:
             for g in result['generators']:
                 a,b,z=self.costs[g['id']]; factor=max(float(exo[3]),1.)/30. if g['bus'] in self.roots else 1.
                 cost+=factor*(a*g['p_mw']**2+b*g['p_mw']+z)
-            recovery=shed*100000.+(wc+sc)*200.+result['backup_mwh']*5000.
+            recovery=shed*self.shed_unit_cost+(wc+sc)*self.curtail_unit_cost+result['backup_mwh']*self.backup_unit_cost
             result.update(status='executed_ac_valid',physics_version=VERSION,non_ev_shed_mwh=float(shed),
                 non_ev_shed_by_bus_mw=(self.load_share*shed).tolist(),base_fraction=fraction,
                 wind_curtail_mwh=float(wc),solar_curtail_mwh=float(sc),
                 wind_available_mwh=float(exo[1]),solar_available_mwh=float(exo[2]),
                 generation_cost=float(cost),recovery_cost=float(recovery),total_operating_cost=float(cost+recovery),
+                ac_loss_regularization_cost=float(self.ac_loss_unit_value*result['loss_mwh']),
+                dispatch_objective_cost=float(cost+recovery+self.ac_loss_unit_value*result['loss_mwh']),
                 protection_attempts=attempts,protection_policy='AC_dispatch_then_finite_proportional_nonEV_shedding')
             return result
         return dict(physical_valid=False,converged=False,status='no_verified_execution_point',protection_attempts=attempts)

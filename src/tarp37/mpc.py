@@ -51,12 +51,12 @@ class BusinessMPC:
             power.append(np.array([lp.var(0.,charge[d]) if signs[d]>0 else lp.var(-discharge[d],0.) for d in range(51)]))
             pg.append(np.array([lp.var(g['pmin_mw'],g['pmax_mw']) for g in n.gen]))
             qg.append(np.array([lp.var(g['qmin_mvar'],g['qmax_mvar']) for g in n.gen]))
-            backup=np.array([lp.var(0.,min(c.backup_power_mw,float(backup_remaining[j])),cost=5000/50) for j in range(2)])
+            backup=np.array([lp.var(0.,min(c.backup_power_mw,float(backup_remaining[j])),cost=n.backup_unit_cost/n.cost_scale) for j in range(2)])
             backups.append(backup)
             for j in range(2): lp.inequality({int(x[j]):1. for x in backups},float(backup_remaining[j]))
             load=n.load_share*exo[0]; renew=n.wind_share*exo[1]+n.solar_share*exo[2]
-            shed=lp.var(0.,1.,cost=exo[0]*100000/50)
-            curt=np.array([lp.var(0.,r,cost=200/50) for r in renew])
+            shed=lp.var(0.,1.,cost=exo[0]*n.shed_unit_cost/n.cost_scale)
+            curt=np.array([lp.var(0.,r,cost=n.curtail_unit_cost/n.cost_scale) for r in renew])
             all_i=np.r_[power[-1],pg[-1],qg[-1],backup,[shed],curt]
             pmap=np.column_stack([n.device_map,-n.gen_map,np.zeros((66,10)),-n.backup_map,-load[:,None],np.eye(66)])
             qmap=np.column_stack([np.zeros((66,51+10)),-n.gen_map,np.zeros((66,2)),-(load*n.q_ratio)[:,None],np.zeros((66,66))])
@@ -81,7 +81,7 @@ class BusinessMPC:
                 cuts=np.linspace(g['pmin_mw'],g['pmax_mw'],61)
                 segments=[]
                 for left,right in zip(cuts[:-1],cuts[1:]):
-                    idx=lp.var(0.,right-left,cost=w[0]*factor*(b+a*(left+right))/50)
+                    idx=lp.var(0.,right-left,cost=w[0]*factor*(b+a*(left+right))/n.cost_scale)
                     segments.append(idx); planned_cost_indices.append(idx)
                 lp.equal({int(pg[-1][j]):1.,**{i:-1. for i in segments}},g['pmin_mw'])
             energies=[]

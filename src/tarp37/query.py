@@ -8,6 +8,15 @@ from .environment import UnifiedEnvironment,ExecutionUnknown
 from .risks import window_labels
 
 
+def next_attempt(parent,stem):
+    """Retain incomplete native attempts and start a fresh restored branch."""
+    parent=Path(parent)
+    for i in range(10000):
+        path=parent/(stem+f'_attempt_{i:04d}')
+        if not path.exists(): return path
+    raise RuntimeError('Too many retained native query attempts')
+
+
 def run_query(data_run,proposal_path,output_path):
     proposal=read(proposal_path); reference=proposal['reference']
     if reference['role']!='train': raise ValueError('Acquisition is restricted to training sources')
@@ -16,7 +25,8 @@ def run_query(data_run,proposal_path,output_path):
     if not snapshot.is_dir(): raise ValueError('Frozen native pool snapshot missing')
     output_path=Path(output_path)
     if output_path.exists(): raise FileExistsError('Retain the existing query result')
-    env=UnifiedEnvironment(output_path.parent/'native'/output_path.stem,reference['date'],int(reference['source_id'].rsplit('_s',1)[1]))
+    native=next_attempt(output_path.parent/'native',output_path.stem)
+    env=UnifiedEnvironment(native,reference['date'],int(reference['source_id'].rsplit('_s',1)[1]))
     try:
         env.restore(snapshot); env.anchor=np.array(reference['context']['preference_anchor'])
         ctx=env.context(); ctx['candidate_mw']=proposal['power_mw']

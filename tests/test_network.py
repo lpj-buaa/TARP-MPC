@@ -49,3 +49,15 @@ def test_finite_protection_can_shed_real_load_without_fictitious_supply():
     assert r['recovery_cost'] > 0
     assert max(g['p_mw'] for g in r['generators']) <= 30+1e-6
     assert r['max_bus_residual_mva'] < 1e-5
+
+
+def test_surplus_renewables_are_curtailed_instead_of_dissipated_as_line_heat():
+    from tarp37.network import UnifiedNetwork
+    net=UnifiedNetwork()
+    r=net.dispatch(np.array([16.,1.,30.,35.]),np.zeros(51),np.full(2,6.),allow_shedding=False)
+    assert r['physical_valid'],r.get('status')
+    assert r['loss_mwh'] < 1., 'surplus energy must not be disposed of through artificial I-squared-R losses'
+    assert r['wind_curtail_mwh']+r['solar_curtail_mwh'] > 14.
+    assert r['non_ev_shed_mwh']==0 and r['backup_mwh'] < 1e-7
+    assert r['ac_loss_regularization_cost'] > 0
+    assert np.isclose(r['dispatch_objective_cost'],r['total_operating_cost']+r['ac_loss_regularization_cost'])

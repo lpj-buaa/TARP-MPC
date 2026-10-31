@@ -15,6 +15,8 @@ def main():
     p.add_argument('--policy',choices=['td3','sobol','random'],default='td3'); p.add_argument('--queries',type=int)
     p.add_argument('--seed',type=int,default=42); a=p.parse_args()
     config=read(PROJECT/f'configs/training_{a.mode}.json'); config['seed']=a.seed
+    config['acquisition_policy']='none' if a.skip_rl else a.policy
+    config['acquisition_queries']=0 if a.skip_rl else (a.queries or config['query_episodes'])
     tasks=TASKS if a.task=='all' else [a.task]
     for task in tasks:
         if a.skip_rl and task in ('explore','pack_augmented'): continue
