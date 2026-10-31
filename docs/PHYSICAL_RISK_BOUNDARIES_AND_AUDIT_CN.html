@@ -1,0 +1,190 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>四类风险物理边界与代码核查</title><style>body{font:17px/1.85 "Microsoft YaHei",sans-serif;color:#202f36;max-width:1220px;margin:38px auto;padding:0 28px}h1{font-size:29px}h2{font-size:23px;margin-top:38px;border-bottom:1px solid #ccd9dc;padding-bottom:8px}table{border-collapse:collapse;width:100%;font-size:15px}th,td{border-bottom:1px solid #d8e1e5;text-align:left;padding:12px;vertical-align:top}th{background:#eaf2f4}tr:nth-child(even){background:#f7f9fa}a{color:#17677c}pre{background:#edf2f5;padding:18px;overflow-x:auto;font-size:14px}code{overflow-wrap:anywhere}.math{overflow-x:auto;padding:12px;background:#fafbfc}@media print{body{font-size:11pt;max-width:none;padding:0}table{font-size:9pt}pre{white-space:pre-wrap}h2{break-after:avoid}tr{break-inside:avoid}}</style><script>window.MathJax={"tex": {"inlineMath": [["\\(", "\\)"]], "displayMath": [["\\[", "\\]"]]}};</script><script defer src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script></head><body><h1 id="_1">四类风险：边界、纠正措施与实际后果</h1>
+<p>本轮按照“完整常规方案—额外纠正—实际执行后果”核查代码。研究对象是一个候选行动在后续有限信息、动态偏好MPC接续下会产生什么后果。正常的电压波动、损耗变化、不同节点压差和非零等待本身不自动构成风险事件。四个输出头分别对应电压约束、网络容量、充电/出行服务和新能源消纳预算，其中前两项属于电气工程约束，后两项属于明确的服务承诺与运行预算。</p>
+<p>修改保存在独立目录 <code>D:\博士资料包\科研\科研\AAAI_RL\tarp_37_risk_audit</code>，分支 <code>codex/physical-risk-audit</code>，基础版本 <code>62ec7ae</code>。原项目 <code>tarp_37_unified</code>、既有轨迹、RL与专家银行保留不动。道路37节点、电气66节点/64条线路、原生10台机组的P/Q能力、线路阻抗、0.9 kA和0.93–1.07 pu均不变。</p>
+<h2 id="_2">一、四类事件的统一口径</h2>
+<table>
+<thead>
+<tr>
+<th>风险头</th>
+<th>明确边界与标签</th>
+<th>可以采用的处理</th>
+<th>必须对应的实际后果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Voltage</td>
+<td>完整常规方案在真实交付/真实外部条件下的AC电压低于0.93或高于1.07 pu；1e-6 pu仅为数值容差</td>
+<td>有限机组P/Q再调度、风光调整、有限备用；交付前可调整充电配额，交付后不能倒改已充电量；必要时执行非EV失供回退</td>
+<td>纠正前最小裕度、越限节点/幅度、Q/P调整、额外弃发/备用/失供，以及执行后的实际电压</td>
+</tr>
+<tr>
+<td>NetworkCapacity</td>
+<td>任一线路电流大于0.9 kA，或单个根节点正向进口有功大于该节点原生30 MW能力；分别保留子机制</td>
+<td>有功再调度、储能/可参与车辆响应、交付前限充、有限备用及非EV失供</td>
+<td>纠正前线路负载率/PCC进口、配额减少、资源消耗、实际未供电及处理后电流；反送许可单列</td>
+</tr>
+<tr>
+<td>ChargingService</td>
+<td>实际原生出发失败的补能可达性缺口大于0.001 kWh数值容差，或从到达FCS到首次正充电的等待超过30分钟场景SLA</td>
+<td>车辆自主选择可行站点并权衡路程与预计等待；MPC调配充电、储能及可参与V2G，失败时保留延误/原生救援</td>
+<td>逐车逐行程缺口、开始充电等待、排队车·分钟、出行失败/救援。当前并未把所有用户的离站约定充电量都纳入该缺口</td>
+</tr>
+<tr>
+<td>RenewableCurtailment</td>
+<td>完整六小时窗口内，风或光任一来源的弃发量/可用量超过10%；零或数值极小分母不构造比例事件</td>
+<td>调低常规出力、安排灵活充电/储能、按现有接口许可管理交换、必要时弃发</td>
+<td>分来源弃发MWh、利用率、额外弃发及费用。六小时10%是场景消纳预算，不是六小时法定事故门槛</td>
+</tr>
+</tbody>
+</table>
+<p>电压事件使用</p>
+<div class="math">\[
+m_{i,h}=\min\{V_{i,h}-0.93,\;1.07-V_{i,h}\},\qquad
+Y_V=\mathbb I\{\min_{i,h}m_{i,h}<-\epsilon_V\},\quad \epsilon_V=10^{-6}.
+\]</div>
+<p>电压偏差平方和和节点裕度变化保留为连续解释量，均不增加电压事件或新的风险头。0.93–1.07是供电电压偏差边界，不是继电保护整定值或电压崩溃点。本项目的小时准稳态AC结果表达约束压力，不据此声称重现电压动态失稳。<a href="https://spiral.imperial.ac.uk/bitstreams/fa73c8b6-6451-4e99-aba5-9e6db02d6352/download">IEEE/CIGRE稳定性分类论文</a>区分了扰动后的电压稳定能力与静态电压偏离，支持上述研究对象的区分。</p>
+<p>容量事件使用</p>
+<div class="math">\[
+Y_C=\mathbb I\!\left\{\max_h\max\!\left(\max_\ell\frac{I_{\ell,h}}{0.9},\max_r\frac{[P_{r,h}]_+}{30}\right)>1+\epsilon_C\right\}.
+\]</div>
+<p>反送电的方向不能自动解释为热容量超限。保留原生根机组Pmin=0的运行约定，但把其违反量 <code>pcc_export_permission_excess_mw</code> 独立记录；它不再通过 <code>1-P/30</code> 混进NetworkCapacity事件。当前30 MW是原生有功出力上界，不能写成经过设备铭牌核验的30 MVA变压器容量。</p>
+<p>新能源窗口事件按风、光分别计算：</p>
+<div class="math">\[
+Y_R=\mathbb I\!\left\{\exists c\in\{\mathrm{wind},\mathrm{solar}\}:\;
+\sum_h E^{\mathrm{curt}}_{c,h}>0.1\sum_hE^{\mathrm{avail}}_{c,h}+\epsilon_E\right\},
+\]</div>
+<p>其中该来源的可用量必须高于数值容差。强度读出也改为分来源比例的最大值，避免标签按分来源判定、强度却用合并比率稀释。同一窗口有两个头为正表示多维后果共现；机制联系仍应从对应控制和物理后果解释。</p>
+<h2 id="_3">二、纠正前后必须是同一个方案</h2>
+<p>原代码有三个实质错位。第一，MPC有逐节点弃发、无功、备用和基础负荷削减决策，但诊断潮流只接入常规机组的有功计划。第二，诊断把所有风光恢复为全额可用出力，把局部机组切成各自维持1 pu的PV调压方式，从而改变了待评估方案。第三，负根节点有功被视作容量占比大于1，导致反送许可越界被当成容量短缺。</p>
+<p>现在MPC显式返回每小时常规P/Q、逐节点逐来源风光输出、备用和基础负荷保供比例。<code>routine_point()</code> 提取完整首小时运行点。<code>network.pressure()</code> 固定局部机组P/Q和其余设备指令，只把实际风光低于计划的部分按可用量截断；两个根节点维持1 pu并负责AC平衡，其实际P/Q与计划的差异可从同序机组记录核对，不能同时将平衡节点的电压和P/Q全部固定。根节点范围偏离独立记录，不额外偷偷执行另一套局部PV调压策略。该诊断点从不作为实际带越限运行点提交。</p>
+<p>完整记录包含四个相邻环节。首先，在当时可见的预测上，用相同完整常规方案分别检查请求配额和保护后配额，得到 <code>forecast_allocation_guard.diagnostic</code> 与 <code>applied_diagnostic</code>。其次，只推进一次原生交通，记录真实交付电量及车辆响应。再次，用真实外部数据、真实交付和同一常规方案得到 <code>pre_routine_AC</code>。最后，AC执行器再调度P/Q、弃发和有限备用，必要时尝试非EV负荷削减，独立检查实际AC平衡、电压、电流和机组边界。</p>
+<p>预测阶段限充是执行前动作，不追溯篡改已经交付的EV电量；对应的配额减少用MW记录，其服务影响由真实车辆仿真测得。实际交付后不能再用“限充”把已充电能量删掉。若后续AC执行无法核验，保留已发生交通结果，电气后续标记未知。</p>
+<p><code>correction_evidence</code> 对比纠正前后相同机组顺序的P/Q、风光利用量、备用及非EV失供，发布相对常规计划的增减，而不是把原计划已经安排的弃发全部当成额外应急。各约束共同进入AC再调度；记录“哪些边界触发”和“哪些措施发生”，不把每一笔调节未经对照就归因给某一个约束。</p>
+<p>数值求解失败不能证明物理不可行。当前失供梯度回退会明确保留每次求解状态；若在前序数值未知后选用了有失供的运行点，记录为求解回退选择，不声称该失供在物理上不可避免。正常经济性再调度也不会单凭存在P/Q变化就产生一个风险事件。</p>
+<h2 id="mpc">三、发现并处理的MPC无功退化</h2>
+<p>接齐完整P/Q计划后，一个16 MW基础负荷测试的原LP会选出首小时总绝对无功约195.97 Mvar，而负荷无功约9.906 Mvar。原因是业务目标没有约束同等最优解之间的无功环流，线性模型可以用大幅正负无功抵消。旧诊断改成PV调压后掩盖了这项问题。词典序择优后，该测试首小时及六小时最大总绝对无功都为约9.906 Mvar，原业务目标增加约1.0e-7，完整AC诊断可收敛。它仍可能因为近似模型和实际外部条件而越限；“可计算”与“已合规”分开检查。</p>
+<p>新增的处理是词典序择优：先求原业务目标最优值，再在其目标值增加不超过1e-7的集合中最小化各机组绝对无功之和。四个业务目标和偏好不变，没有新增风险目标，也没有收缩机组能力。回归测试要求原业务目标增量不超过1e-6，并检查完整计划能够进入AC核验。</p>
+<h2 id="_4">四、来源、参数与真正的边界</h2>
+<p>GB/T 12325—2008第4.2条给出20 kV及以下三相供电电压偏差±7%，为10 kV主案例的边界提供依据。<a href="https://openstd.samr.gov.cn/bzgk/std/newGbInfo?hcno=75EBBCF838AA40D281EDA854B8F63AD7">现行标准目录</a>、<a href="https://www.sjzxzg.com/xzg-api/profile/jiance/2026/03/05/20afcc540eef4953adb9f243783c1838.pdf">标准正文</a>。当前每小时聚合AC结果用于研究小时准稳态方案后果，不替代标准所要求的实际测量与合格率统计。</p>
+<p>V2Sim原文II-D将节点电压和支路电流纳入配网优化约束，支持以物理可行范围研究控制后果。<a href="https://arxiv.org/html/2412.09808v1">V2Sim论文</a>。0.9 kA来自用户确认的南京case参考设置，并非已经核验37节点导线型号后的真实铭牌。它在本实验中是固定额定场景参数，不能为了多造风险继续改小。</p>
+<p>ACN-Sim的会话包含到达、离站和请求电量，支持把服务评价落到时间/能量承诺上。<a href="https://ev.caltech.edu/assets/pub/ACN_Sim_Open_Source_Simulator.pdf">Caltech论文</a>、<a href="https://acnportal.readthedocs.io/en/latest/acnsim/models.html">原始接口说明</a>。当前本项目保留的是V2Sim出行失败后的补能可达性缺口，并已增加准确的语义字段；30分钟为明确的场景等待SLA。二者均不冒充统一的道路安全标准。</p>
+<p>国家发展改革委和国家能源局的2025—2027年实施方案支持以新能源利用率研究消纳约束，但全国/年度目标不能直接变成每个六小时的法定合规判定。<a href="https://www.ndrc.gov.cn/xwdt/tzgg/202501/t20250106_1395479.html">官方通知与附件</a>。本项目六小时10%为政策启发的运行预算；与电压、电流的工程边界在表述中分开。</p>
+<h2 id="_5">五、追查电压较低记录时发现的时间对齐问题</h2>
+<p>已有Parquet把EIA风/光的 <code>period</code> 直接作为时间索引，小时缓存又将它与CAISO的区间起点直接拼接。EIA公开规定其小时值按hour-ending发布，而CAISO实际负荷使用 <code>INTERVALSTARTTIME_GMT</code>。两者需要先统一为同一区间。<a href="https://www.eia.gov/electricity/930-content/about.html">EIA官方时间说明</a>。现有南京工程验证已经采用减一小时的口径，本次37节点复用旧缓存时遗漏了这一处理。</p>
+<p>最终读取器保持原始缓存、CAISO负荷、价格和全部已发布预测不动，仅将EIA风光实际值按其对应小时区间重排：缓存period为T+1的值用于[T,T+1)。末端若缺少相应小时，保留未知，不补造实际值。缩放参考继续固定在既有开发数据参数，没有按本批风险标签重新定标。</p>
+<p>对齐前的机械核验保存在 <code>risk_boundary_audit_s42_v4</code>：26小时暖启动、四分支24小时全部AC有效，1936项记录一致性核查无错误；14条记录存在纠正前电压约束压力、10条有偏差但无越限，1条反送许可偏离独立记录，实际无备用/失供/限充调用。这批数据仅用于定位代码接口和时间口径，最终物理判断使用重新对齐后的新运行 <code>risk_boundary_audit_s42_v4_aligned</code>。不将两个时序版本合并成研究样本。</p>
+<h2 id="_6">六、代码位置与复现</h2>
+<p><code>contract.py</code> 是阈值与语义声明，<code>mpc.py</code> 发布完整计划并处理无功退化，<code>network.py</code> 计算同方案纠正前AC和受限执行后AC，<code>environment.py</code> 维持交付时序，<code>evidence.py</code> 发布纠正量，<code>risks.py</code> 只按明确边界生成标签。最终物理版本为 <code>native37_complete_plan_ac_hour_start_v4</code>，标签版本为 <code>four_boundary_events_complete_plan_v4</code>。旧V3轨迹缺少完整运行点，不直接重贴V4标签继续训练。缓存加载、专家训练/预测、采样模型和原生查询入口均检查版本；电气诊断未知时，屏蔽相应电气强度监督，同时保留实际观测到的服务结果。</p>
+<p>在PowerShell执行：</p>
+<pre><code class="language-powershell">Set-Location -LiteralPath 'D:\博士资料包\科研\科研\AAAI_RL\tarp_37_risk_audit'
+$env:PYTHONPATH = Join-Path (Get-Location) 'src'
+$riskPython = 'D:\博士资料包\科研\科研\AAAI_RL\tarp_risk_discovery\.venv\Scripts\python.exe'
+&amp; $riskPython -B -u -m tarp37.cli --config .\configs\risk_audit.json --run-id risk_boundary_audit_s42_v4_aligned --workers 1 --until analyze --resume
+&amp; $riskPython -B .\scripts\check_risk_chain.py --run-id risk_boundary_audit_s42_v4_aligned
+</code></pre>
+<p>上面第一条使用已完成运行时会核验后跳过。需要全新复跑时换RunId，并去掉 <code>--resume</code>，第二条同步换RunId。测试使用已有GPU环境，以包含学习接口所需的sklearn；物理依赖由测试配置只读引入：</p>
+<pre><code class="language-powershell">&amp; 'D:\博士资料包\科研\科研\AAAI_RL\tarp_x_expert_evaluation\.venv\Scripts\python.exe' -m pytest -q --tb=short
+</code></pre>
+<p>本轮只进行物理/标签核验和小规模闭环；生产RL、预警器和专家银行不重训。后续模型实验必须使用新版本重新采集的轨迹。</p>
+<h2 id="_7">七、最终核验结果与研究含义</h2>
+<p>核验于2026年11月1日完成。最终运行 <code>risk_boundary_audit_s42_v4_aligned</code> 使用对齐后的小时实际数据，包含一个运行日期、26小时MPC暖启动、一个相同初态下的四种候选动作及各自六小时接续。四种动作分别为参考MPC、降低充电配额、释放可用储备、原生车辆功率包络上界；没有调整任何道路、电网或充电站容量。统计单位是配对分支小时。</p>
+<table>
+<thead>
+<tr>
+<th>核验项</th>
+<th style="text-align: right;">结果</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>全套测试</td>
+<td style="text-align: right;">55 passed</td>
+<td>包含完整计划重建、因果交付、有限资源、缓存版本、未知掩码与hour-ending回归</td>
+</tr>
+<tr>
+<td>独立保存记录核查</td>
+<td style="text-align: right;">1936项，0错误</td>
+<td>核对局部P/Q、逐来源风光指令、供能、限充时序、实际AC与事件标签</td>
+</tr>
+<tr>
+<td>暖启动AC有效</td>
+<td style="text-align: right;">26/26小时</td>
+<td>正常控制可连续执行</td>
+</tr>
+<tr>
+<td>分支接续AC有效</td>
+<td style="text-align: right;">24/24小时</td>
+<td>没有把未核验的运行点记作已执行</td>
+</tr>
+<tr>
+<td>纠正前AC可核验</td>
+<td style="text-align: right;">24/24小时</td>
+<td>本批无需将电气结果标记未知</td>
+</tr>
+<tr>
+<td>完整方案纠正前电压越界</td>
+<td style="text-align: right;">14/24条小时记录</td>
+<td>明确的方案电压约束压力，不是14次实际失稳或事故</td>
+</tr>
+<tr>
+<td>电压有偏差但未越界</td>
+<td style="text-align: right;">10/24条小时记录</td>
+<td>全部未计入电压事件</td>
+</tr>
+<tr>
+<td>执行后电压范围</td>
+<td style="text-align: right;">0.930000–1.000610 pu</td>
+<td>下界残差约2.1e-7 pu，在1e-6数值容差内</td>
+</tr>
+<tr>
+<td>实际最大线路负载率</td>
+<td style="text-align: right;">14.65%</td>
+<td>不是线路普遍拥塞的场景</td>
+</tr>
+<tr>
+<td>纠正前容量事件</td>
+<td style="text-align: right;">0/24</td>
+<td>没有线路或正向PCC进口超额</td>
+</tr>
+<tr>
+<td>独立反送许可偏离</td>
+<td style="text-align: right;">1/24</td>
+<td>未并入容量头；按根节点Pmin约定处理</td>
+</tr>
+<tr>
+<td>预测保护额外缩减配额</td>
+<td style="text-align: right;">0次</td>
+<td>候选动作自身降低配额与保护强制限充分开</td>
+</tr>
+<tr>
+<td>实际非EV失供/备用</td>
+<td style="text-align: right;">0 MWh / 0 MWh</td>
+<td>本批没有依赖这些措施维持合规</td>
+</tr>
+<tr>
+<td>服务缺口/最大等待</td>
+<td style="text-align: right;">0 kWh / 0分钟</td>
+<td>未构造充电服务风险</td>
+</tr>
+<tr>
+<td>弃发</td>
+<td style="text-align: right;">数值零</td>
+<td>风光弃发分别约3.6e-15和2.8e-16 MWh，未构造预算事件</td>
+</tr>
+<tr>
+<td>六小时四头计数</td>
+<td style="text-align: right;">Voltage 4；Capacity 0；Service 0；RE 0</td>
+<td>四个分支均有电压约束压力，本批无复合事件</td>
+</tr>
+<tr>
+<td>原RL/专家训练调用</td>
+<td style="text-align: right;">0 / 0</td>
+<td>原模型保留，只核验新物理与标签链</td>
+</tr>
+</tbody>
+</table>
+<p>这些结果说明，当前电压压力可以通过机组P/Q再调度消解，没有在本批转化为失供、服务违约或消纳预算超支。四种行动都出现电压压力，因此不能把它们统称为相对参考动作新诱发的风险。候选动作影响应继续通过配对的节点裕度变化、再调度量和实际后果差异解释。</p>
+<p>预期与实际外部条件的差异，以及MPC仿射近似与AC模型之间的差异，都可能使常规方案的AC电压触界。此处最有价值的下一步是区分“常规AC修正可以消解的压力”与“需要额外资源或牺牲服务的后果”，再判断行动是否改变后者。当前结果不需要通过扩大事件定义、降低设备能力或将损耗变化增加为第五类风险来增强故事。</p>
+<p>完整记录见<a href="../artifacts/runs/risk_boundary_audit_s42_v4_aligned/analysis/index.html">小规模物理闭环报告</a>、<a href="../artifacts/runs/risk_boundary_audit_s42_v4_aligned/analysis/risk_chain_audit.json">逐项一致性核查</a>、<a href="../artifacts/runs/risk_boundary_audit_s42_v4_aligned/analysis/correction_records.json">纠正措施记录</a>、<a href="../artifacts/runs/risk_boundary_audit_s42_v4_aligned/analysis/physical_consequences.json">实际后果汇总</a>。</p></body></html>
