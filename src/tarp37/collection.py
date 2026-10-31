@@ -57,7 +57,7 @@ def initialize(root,config,inputs,resume=False):
 
 
 def simulation_inputs():
-    files=['assets.py','contract.py','data.py','network.py','mpc.py','traffic.py','environment.py','risks.py','collection.py']
+    files=['assets.py','contract.py','data.py','network.py','mpc.py','traffic.py','environment.py','risks.py','evidence.py','collection.py']
     inputs={str(PROJECT/'src/tarp37'/p):sha(PROJECT/'src/tarp37'/p) for p in files}
     inputs.update(frozen_inputs())
     for p in (TRAFFIC_SOURCE/'case').rglob('*'):
@@ -126,7 +126,7 @@ def source_job(root,config,source):
                         if not np.allclose(first_hour[a],first,atol=1e-6): raise RuntimeError('Same first action changed under a future-only preference')
                         checks+=1
                     else: first_hour[a]=first
-                    events,known=window_labels(rows)
+                    events,known=window_labels(rows,contract=env.c)
                     records.append(dict(source_id=sid,role=source['role'],date=source['date'],pool_hour=hour,
                         profile_id=p,candidate_id=a,family=family,context=context,rows=rows,event=events.tolist(),event_known=known.tolist()))
                     print(f'{sid}: pool {hour}, preference {p+1}/{len(profiles)}, action {a+1}/{len(candidates)}: '
@@ -163,6 +163,11 @@ def analyze(root):
         risk_counts=np.sum([r['event'] for r in records],axis=0).astype(int).tolist(),
         compound_branches=sum(sum(r['event'])>=2 for r in records),
         requested_line_exceedance_hours=sum(max(r.get('pre_line_loading_ratio') or [0.])>1+1e-6 for r in rows),
+        pre_routine_AC_known_hours=sum(r.get('pre_known',False) for r in rows),
+        pre_routine_voltage_event_hours=sum(r.get('risk_events_hour',{}).get('Voltage') is True for r in rows),
+        pre_routine_capacity_event_hours=sum(r.get('risk_events_hour',{}).get('NetworkCapacity') is True for r in rows),
+        pre_export_permission_excess_hours=sum((r.get('pre_pcc_export_permission_excess_mw') or 0.)>1e-6 for r in rows),
+        numerical_shedding_fallback_hours=sum(r.get('correction_evidence',{}).get('numerical_fallback_used',False) and r['non_ev_shed_mwh']>1e-6 for r in rows),
         warmup_ac_valid=sum(r['physical_valid'] for r in warm),warmup_hours=len(warm),
         rl_training_calls=0,old_expert_training_calls=0,physics_version=VERSION,risk_contract=RISK_VERSION)
     paired=[]

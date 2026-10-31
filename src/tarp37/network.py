@@ -74,7 +74,7 @@ class UnifiedNetwork:
         p = base+self.device_map@np.asarray(power)-self.wind_share*exo[1]-self.solar_share*exo[2]
         return p, base*self.q_ratio
 
-    def _build(self, exo, power, base_fraction, backup_remaining, constrained=True, local_p=None):
+    def _build(self, exo, power, base_fraction, backup_remaining, constrained=True, routine=None):
         c = self.c; net = pp.create_empty_network(sn_mva=self.case.base_mva)
         for b in self.bus_ids:
             root = b in self.roots
@@ -95,7 +95,11 @@ class UnifiedNetwork:
             elif constrained:
                 kind='sgen'; ident=pp.create_sgen(net,self.ix[g['bus']],0.,0.,controllable=True,name=g['id'],**bounds)
             else:
-                kind='gen'; ident=pp.create_gen(net,self.ix[g['bus']],p_mw=float(local_p[j]),vm_pu=1.,name=g['id'],**bounds)
+                # Preserve the commanded local P AND Q; do not replace MPC Q
+                # by a different PV controller holding every generator at 1 pu.
+                kind='sgen'; ident=pp.create_sgen(net,self.ix[g['bus']],
+                    p_mw=float(routine['generation_mw'][j]),q_mvar=float(routine['q_mvar'][j]),
+                    controllable=False,name=g['id'],**bounds)
             if constrained:
                 a,b,z=self.costs[g['id']]
                 factor=max(float(exo[3]),1.)/30. if kind=='ext_grid' else 1.
@@ -106,17 +110,19 @@ class UnifiedNetwork:
             for bus in np.flatnonzero(shares>0):
                 cap=float(shares[bus]*available)
                 if cap<=1e-10: continue
-                i=pp.create_sgen(net,bus,p_mw=0. if constrained else cap,q_mvar=0.,controllable=constrained,
+                used=0. if constrained else min(cap,max(0.,float(routine['renewable_used_by_source_bus_mw'][source][bus])))
+                i=pp.create_sgen(net,bus,p_mw=used,q_mvar=0.,controllable=constrained,
                     min_p_mw=0.,max_p_mw=cap,min_q_mvar=0.,max_q_mvar=0.,name=source+'_'+self.bus_ids[bus])
                 if constrained: pp.create_poly_cost(net,i,'sgen',cp1_eur_per_mw=self.ac_loss_unit_value-self.curtail_unit_cost)
                 renew.append((source,int(bus),i,cap))
         backups=[]
-        if constrained:
-            for j in range(2):
-                bus=int(np.argmax(self.backup_map[:,j])); cap=min(c.backup_power_mw,max(float(backup_remaining[j]),0.))
-                i=pp.create_sgen(net,bus,p_mw=0.,q_mvar=0.,controllable=True,min_p_mw=0.,max_p_mw=cap,
-                    min_q_mvar=0.,max_q_mvar=0.,name='finite_backup_'+str(j))
-                pp.create_poly_cost(net,i,'sgen',cp1_eur_per_mw=self.backup_unit_cost+self.ac_loss_unit_value); backups.append((bus,i))
+        for j in range(2):
+            bus=int(np.argmax(self.backup_map[:,j])); cap=min(c.backup_power_mw,max(float(backup_remaining[j]),0.))
+            used=0. if constrained else float(routine['backup_mw'][j])
+            i=pp.create_sgen(net,bus,p_mw=used,q_mvar=0.,controllable=constrained,min_p_mw=0.,max_p_mw=cap,
+                min_q_mvar=0.,max_q_mvar=0.,name='finite_backup_'+str(j))
+            if constrained: pp.create_poly_cost(net,i,'sgen',cp1_eur_per_mw=self.backup_unit_cost+self.ac_loss_unit_value)
+            backups.append((bus,i))
         return net,conventional,renew,backups,base,q,dev
 
     def _read(self, net, conventional, renew, backups, base, q, dev):
@@ -146,15 +152,24 @@ class UnifiedNetwork:
                   for s,g in zip(self.gen,gens))
         vex=max(self.c.v_min-float(voltage.min()),float(voltage.max())-self.c.v_max,0.)
         ratio=np.array(current)/self.c.line_limit_ka
-        capacity=max(float(ratio.max()),max(max(p/30.,1-p/30.) for p in root))
+        import_ratio=max(max(p,0.)/self.case.root_capacity_mw[b] for p,b in zip(root,self.roots))
+        import_excess=max(max(p-self.case.root_capacity_mw[b],0.) for p,b in zip(root,self.roots))
+        export_excess=max(max(next(g['pmin_mw'] for g in self.gen if g['bus']==b)-p,0.) for p,b in zip(root,self.roots))
+        capacity=max(float(ratio.max()),float(import_ratio))
+        margin=np.minimum(voltage-self.c.v_min,self.c.v_max-voltage)
         rootgen=sum(root); local=sum(g['p_mw'] for g in gens)-rootgen
         return dict(converged=True,voltage=voltage.tolist(),current_ka=current,loading_ratio=ratio.tolist(),
             max_line_loading_ratio=float(ratio.max()),max_bus_residual_mva=residual,generator_bound_excess=gex,
             voltage_excess_pu=float(vex),capacity_ratio_peak=float(capacity),feeder_import_mw=root,
+            voltage_margin_pu=margin.tolist(),minimum_voltage_margin_pu=float(margin.min()),
+            voltage_deviation_squared_sum_pu2=float(np.sum((voltage-1.)**2)),
+            pcc_import_ratio_peak=float(import_ratio),pcc_import_excess_mw=float(import_excess),
+            pcc_export_permission_excess_mw=float(export_excess),
             grid_import_mw=float(rootgen),local_generation_mw=float(local),generators=gens,
             renewable_generators=rs,wind_used_mw=used['wind'],solar_used_mw=used['solar'],
             backup_by_feeder_mw=backup or [0.,0.],backup_mwh=float(sum(backup)),loss_mwh=float(loss),
-            physical_valid=bool(vex<=1e-6 and ratio.max()<=1+1e-6 and gex<=1e-6 and residual<=1e-5),
+            physical_valid=bool(vex<=self.c.voltage_tolerance_pu and ratio.max()<=1+self.c.capacity_ratio_tolerance
+                and gex<=self.c.power_tolerance_mw and residual<=1e-5),
             net_p=(base+dev-renewable_by_bus-self.backup_map@np.array(backup or [0.,0.])).tolist(),q_mvar=q.tolist(),
             renewable_used_by_bus_mw=renewable_by_bus.tolist())
 
@@ -200,16 +215,28 @@ class UnifiedNetwork:
             return result
         return dict(physical_valid=False,converged=False,status='no_verified_execution_point',protection_attempts=attempts)
 
-    def pressure(self, exo, power, planned_generation=None):
-        """Unexecuted request test: native bounded local PV regulation, roots slack.
+    def pressure(self, exo, power, routine):
+        """AC verification of the complete routine plan, without extra recourse.
 
-        Roots may violate their declared P/Q limits in this diagnostic solve;
-        those exceedances are measured and never accepted as actual operation.
+        Local P/Q, source/bus renewable setpoints, backup and served base load
+        are held at their planned values. RE commands saturate at actual
+        availability. Roots balance AC losses/mismatch and their P/Q excesses
+        are measured separately. This diagnostic point is never executed.
         """
-        local=np.zeros(10) if planned_generation is None else np.asarray(planned_generation,float)
-        net,gen,re,back,base,q,dev=self._build(np.asarray(exo,float),power,1.,[0.,0.],False,local)
+        exo=np.asarray(exo,float); power=np.asarray(power,float)
+        values=np.r_[routine['generation_mw'],routine['q_mvar'],routine['backup_mw'],
+            routine['renewable_used_by_source_bus_mw']['wind'],
+            routine['renewable_used_by_source_bus_mw']['solar'],routine['base_fraction']]
+        if not np.isfinite(values).all() or not 0<=routine['base_fraction']<=1:
+            raise ValueError('Complete finite routine operating point required')
+        net,gen,re,back,base,q,dev=self._build(exo,power,float(routine['base_fraction']),
+            routine['backup_mw'],False,routine)
         try:
-            pp.runpp(net,init='flat',numba=False,enforce_q_lims=True,max_iteration=80,tolerance_mva=1e-9,calculate_voltage_angles=True)
-            r=self._read(net,gen,re,back,base,q,dev); r['scope']='request_only_not_executed'; return r
+            pp.runpp(net,init='flat',numba=False,max_iteration=80,tolerance_mva=1e-9,calculate_voltage_angles=True)
+            r=self._read(net,gen,re,back,base,q,dev)
+            r['scope']='complete_routine_plan_without_extra_AC_recourse_not_executed'
+            r['base_fraction']=float(routine['base_fraction'])
+            r['known']=bool(r['max_bus_residual_mva']<=1e-5)
+            return r
         except pp.LoadflowNotConverged:
-            return dict(converged=False,scope='request_numerical_unknown_not_a_failure_label')
+            return dict(converged=False,known=False,scope='routine_AC_numerical_unknown_not_a_failure_label')

@@ -7,6 +7,17 @@ from scipy.special import softmax
 from .contract import VERSION
 
 
+def routine_point(plan, hour=0):
+    """Complete commanded operating point, before additional AC correction."""
+    return dict(generation_mw=plan['planned_generation_mw'][hour],
+        q_mvar=plan['planned_q_mvar'][hour],
+        renewable_used_by_source_bus_mw={
+            'wind': plan['planned_wind_used_by_bus_mw'][hour],
+            'solar': plan['planned_solar_used_by_bus_mw'][hour]},
+        backup_mw=plan['planned_backup_mw'][hour],
+        base_fraction=plan['planned_base_fraction'][hour])
+
+
 def update_preferences(previous, anchor, price_pressure=0., service_pressure=0., resource_pressure=0., change_pressure=0.):
     z=np.log(np.maximum(anchor,.02))+np.clip([price_pressure,service_pressure,resource_pressure,change_pressure],-1,1)
     target=.02+.92*softmax(z)
@@ -38,7 +49,7 @@ class BusinessMPC:
 
     def _mode(self, view, forecast, weights, backup_remaining, mode):
         n=self.n; c=self.c; h=len(forecast['values']); lp=LP(); w=np.asarray(weights,float)
-        power=[]; pg=[]; qg=[]; backups=[]; voltage_rows=[]; essence=[]
+        power=[]; pg=[]; qg=[]; backups=[]; voltage_rows=[]; essence=[]; curtailments=[]; sheds=[]
         planned_cost_indices=[]; service_indices=[]; resource_indices=[]; change_indices=[]
         prices=forecast['values'][:,3]
         for t,exo in enumerate(forecast['values']):
@@ -57,6 +68,7 @@ class BusinessMPC:
             load=n.load_share*exo[0]; renew=n.wind_share*exo[1]+n.solar_share*exo[2]
             shed=lp.var(0.,1.,cost=exo[0]*n.shed_unit_cost/n.cost_scale)
             curt=np.array([lp.var(0.,r,cost=n.curtail_unit_cost/n.cost_scale) for r in renew])
+            curtailments.append(curt); sheds.append(shed)
             all_i=np.r_[power[-1],pg[-1],qg[-1],backup,[shed],curt]
             pmap=np.column_stack([n.device_map,-n.gen_map,np.zeros((66,10)),-n.backup_map,-load[:,None],np.eye(66)])
             qmap=np.column_stack([np.zeros((66,51+10)),-n.gen_map,np.zeros((66,2)),-(load*n.q_ratio)[:,None],np.zeros((66,66))])
@@ -110,14 +122,36 @@ class BusinessMPC:
         for d in range(4):
             debt=lp.var(cost=(w[2]+1.)/4); resource_indices.append(debt)
             lp.inequality({int(essence[-1][d]):-1.,debt:-1.},-1.)
+        # Q is otherwise unpriced: an LP vertex can circulate tens of Mvar
+        # between units at no business benefit. Among equal primary optima,
+        # choose minimum absolute reactive effort (not a new risk objective).
+        reactive_effort=[lp.absolute({int(j):1.}) for hour in qg for j in hour]
         result=lp.solve()
         if not result.success: return dict(success=False,mode=mode,message=result.message)
+        primary_cost=np.asarray(lp.cost,float); primary_optimum=float(result.fun)
+        lp.inequality(lp.dense_row(range(len(primary_cost)),primary_cost),primary_optimum+1e-7)
+        lp.cost=[float(i in reactive_effort) for i in range(len(primary_cost))]
+        refined=lp.solve()
+        if refined.success: result=refined
+        lp.cost=primary_cost.tolist()
+        objective=float(primary_cost@result.x)
         x=result.x; volts=[(v0+dv@x[idx]).tolist() for idx,dv,v0 in voltage_rows]
         terms={name:float(sum(x[i]*lp.cost[i] for i in ix)) for name,ix in
             [('cost',planned_cost_indices),('service',service_indices),('resource',resource_indices),('change',change_indices)]}
-        return dict(success=True,mode=mode,objective=float(result.fun),objective_terms=terms,
+        source_used={'wind':[], 'solar':[]}
+        for t,exo in enumerate(forecast['values']):
+            available=n.wind_share*exo[1]+n.solar_share*exo[2]
+            fraction=np.divide(np.maximum(available-x[curtailments[t]],0.),available,
+                out=np.zeros(66),where=available>1e-12)
+            source_used['wind'].append((n.wind_share*exo[1]*fraction).tolist())
+            source_used['solar'].append((n.solar_share*exo[2]*fraction).tolist())
+        return dict(success=True,mode=mode,objective=objective,objective_terms=terms,
             power_mw=x[power[0]].tolist(),planned_power_mw=x[power].tolist(),planned_generation_mw=x[pg].tolist(),
             planned_q_mvar=x[qg].tolist(),planned_backup_mw=x[backups].tolist(),planned_ess_mwh=x[essence].tolist(),
+            planned_base_fraction=(1.-x[sheds]).tolist(),planned_curtailment_mw=x[curtailments].tolist(),
+            planned_wind_used_by_bus_mw=source_used['wind'],planned_solar_used_by_bus_mw=source_used['solar'],
+            reactive_tiebreak=dict(success=bool(refined.success),primary_objective_increase=objective-primary_optimum,
+                rule='lexicographic minimum sum absolute Q within 1e-7 of original business optimum'),
             planned_voltage_pu=volts,physics_version=VERSION,minimum_inequality_slack=float(np.min(result.ineqlin.residual)),
             approximation='radial affine voltage; conservative16-current polygon; native0.5MW cost secants; finite signed mode bank')
 

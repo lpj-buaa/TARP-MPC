@@ -65,7 +65,7 @@ def build(run_id):
     text=f'''<!doctype html><html lang="zh"><meta charset="utf-8"><title>37nodes统一物理闭环核验</title>
 <style>body{{font:17px/1.8 "Microsoft YaHei",sans-serif;color:#243741;max-width:1260px;margin:38px auto;padding:0 24px}}h1{{font-size:29px}}h2{{font-size:22px;margin-top:34px}}table{{border-collapse:collapse;width:100%;font-size:15px}}th,td{{padding:9px 12px;border-bottom:1px solid #dce5e8;text-align:left}}th{{background:#edf3f5}}img{{width:100%}}.note{{padding:16px;background:#f3f7f8;border-left:4px solid #287D88}}code{{overflow-wrap:anywhere}}</style>
 <h1>37nodes统一物理闭环核验</h1><p>在原始道路、电网、线路阻抗、机组能力和充电站配置上，以0.9 kA、0.93–1.07 pu作为统一运行合同。原生车辆由MPC暖启动，首小时施加候选动作，此后继续有限信息动态偏好MPC；真实交通按15分钟记录，配电网按小时结算。</p>
-<p class="note">本页用于检查干预—资源—后续调度链条与物理执行是否闭合。当前为{summary['sources']}个运行日期。电气事件表示真实交付后、主动AC补救前的应力；执行后的电压、电流和机组约束另行验证。未把补救前越限当成持续带故障运行。</p>
+<p class="note">本页用于检查干预—资源—后续调度链条与物理执行是否闭合。当前为{summary['sources']}个运行日期。电气事件表示完整常规P/Q、风光利用、备用和保供计划在真实交付下的AC约束压力；额外纠正后的实际电压、电流和机组约束另行验证。电压偏差和节点压差不单独计为事件，反送许可偏离与热容量超限分列。</p>
 <h2>小规模运行结果</h2>{table}<img src="physical_closure.png" alt="Physical closure panel">
 <p>组合图展示按source排序的前{len(records)}条分支，汇总和配对表使用全部数据。红色为六小时窗口中的已知事件；灰色为完整观测后的未发生；问号为证据不足。风、光分别按窗口弃发比例判断。30分钟等待和10%弃发均为明确的场景标准，后者不解释为年度政策合规结论。</p>
 <h2>同状态干预如何改变后续调度</h2>{paired}

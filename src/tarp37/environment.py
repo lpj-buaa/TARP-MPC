@@ -8,9 +8,10 @@ from .assets import TRAFFIC_SOURCE
 from .network import UnifiedNetwork
 from .traffic import NativeTraffic
 from .data import ForecastTrace
-from .mpc import BusinessMPC,update_preferences
+from .mpc import BusinessMPC,update_preferences,routine_point
 from .contract import RISK_VERSION,VERSION
-from .risks import intensities
+from .risks import intensities,hourly_events,source_curtailment_ratios
+from .evidence import correction_evidence,constraint_triggers
 
 
 class ExecutionUnknown(RuntimeError):
@@ -63,7 +64,8 @@ class UnifiedEnvironment:
             preference_anchor=self.anchor.tolist(),backup_energy_mwh=self.backup.tolist(),
             bus_voltage_pu=self.last_grid['voltage'],bus_net_p_mw=self.last_grid['net_p'],bus_q_mvar=self.last_grid['q_mvar'],
             routine_generation_mw=self.plan()['planned_generation_mw'][0],
-            routine_q_mvar=self.plan()['planned_q_mvar'][0],history=deepcopy(self.history[-2:]))
+            routine_q_mvar=self.plan()['planned_q_mvar'][0],
+            routine_operating_point=routine_point(self.plan()),history=deepcopy(self.history[-2:]))
 
     def _bounded(self,request):
         r=np.asarray(request,float).copy(); v=self.view()
@@ -79,9 +81,9 @@ class UnifiedEnvironment:
         before_ess=self.ess.copy(); before_backup=self.backup.copy(); weights=self.weights.copy()
         # This baseline is part of the visible, deterministic controller state.
         # A caller's optional plan cannot silently change diagnostic truth.
-        routine=self.plan(); planned_pg=np.asarray(routine['planned_generation_mw'][0])
+        routine=self.plan(); point=routine_point(routine); planned_pg=np.asarray(point['generation_mw'])
         visible=self.forecast(); predicted=visible['values'][0]
-        guard_request=self.network.pressure(predicted,bounded,planned_pg)
+        guard_request=self.network.pressure(predicted,bounded,point)
         attempts=[]
         # Choose allocation BEFORE observing any native arrivals or realized
         # current-hour average. Endpoint tests are an allocation guard, not a
@@ -91,13 +93,15 @@ class UnifiedEnvironment:
             zero=applied.copy(); zero[:47]=0.
             high=self.network.dispatch(predicted,applied,before_backup,allow_shedding=False)
             low=self.network.dispatch(predicted,zero,before_backup,allow_shedding=False)
-            attempts.append(dict(scale=scale,full_endpoint_valid=high['physical_valid'],zero_EV_endpoint_valid=low['physical_valid']))
+            attempts.append(dict(scale=scale,full_endpoint_valid=high['physical_valid'],zero_EV_endpoint_valid=low['physical_valid'],
+                full_endpoint_status=high.get('status'),zero_EV_endpoint_status=low.get('status')))
             if high['physical_valid'] and low['physical_valid']: break
+        guard_applied=self.network.pressure(predicted,applied,point)
         tr=self.traffic.advance_hour(applied[:47])
         actual=np.r_[tr['station_mean_mw'],applied[47:]]
         # Actuals are first queried for settlement after irreversible native
         # delivery. Only generation/Q, curtailment and non-EV shedding can adapt.
-        exo=self.trace.actual(now); pre=self.network.pressure(exo,actual,planned_pg)
+        exo=self.trace.actual(now); pre=self.network.pressure(exo,actual,point)
         ac=self.network.dispatch(exo,actual,before_backup,allow_shedding=True)
         self.ess=before_ess+np.maximum(actual[47:],0.)*self.c.ess_efficiency-np.maximum(-actual[47:],0.)/self.c.ess_efficiency
         ess_error=np.max(np.abs(self.ess-before_ess-np.maximum(actual[47:],0.)*self.c.ess_efficiency+np.maximum(-actual[47:],0.)/self.c.ess_efficiency))
@@ -105,8 +109,10 @@ class UnifiedEnvironment:
             raise ExecutionUnknown(dict(physical_valid=False,now=now,hour=self.hour,risk_contract=RISK_VERSION,
                 traffic=tr,actual_device_mw=actual.tolist(),ess_energy_mwh=self.ess.tolist(),
                 service_known=True,departure_energy_deficit_kwh=tr['departure_energy_deficit_kwh'],
-                fcs_wait_max_minutes=tr['fcs_wait_max_minutes'],pre_known=pre['converged'],
+                fcs_wait_max_minutes=tr['fcs_wait_max_minutes'],pre_known=pre['known'],
                 pre_voltage_excess_pu=pre.get('voltage_excess_pu'),pre_capacity_ratio_peak=pre.get('capacity_ratio_peak'),
+                routine_operating_point=point,pre_routine_AC=pre,
+                correction_evidence=correction_evidence(pre,ac,exo,self.c),
                 execution_status='delivery_retained_AC_unknown_suffix_unknown',protection_trials=attempts))
         self.backup=before_backup-np.array(ac['backup_by_feeder_mw'])
         if self.backup.min() < -1e-7 or self.ess.min()<.2-1e-7 or self.ess.max()>1.8+1e-7: raise RuntimeError('Finite resource violation')
@@ -116,20 +122,37 @@ class UnifiedEnvironment:
             actual_device_mw=actual.tolist(),allocation_capacity_reduction_mw=allocation_cut,
             battery_balance_error_kwh=abs(tr['battery_balance_error_kwh']),ess_balance_error_mwh=float(ess_error),
             backup_energy_remaining_mwh=self.backup.tolist(),ess_energy_mwh=self.ess.tolist(),
-            pre_known=pre['converged'],pre_voltage_excess_pu=pre.get('voltage_excess_pu'),
+            pre_known=pre['known'],pre_voltage_excess_pu=pre.get('voltage_excess_pu'),
             pre_capacity_ratio_peak=pre.get('capacity_ratio_peak'),pre_voltage=pre.get('voltage'),
-            pre_line_loading_ratio=pre.get('loading_ratio'),pre_scope='actual_native_delivery_before_active_AC_recourse',
+            pre_line_loading_ratio=pre.get('loading_ratio'),
+            pre_pcc_import_ratio_peak=pre.get('pcc_import_ratio_peak'),
+            pre_pcc_import_excess_mw=pre.get('pcc_import_excess_mw'),
+            pre_pcc_export_permission_excess_mw=pre.get('pcc_export_permission_excess_mw'),
+            pre_voltage_margin_pu=pre.get('voltage_margin_pu'),
+            pre_minimum_voltage_margin_pu=pre.get('minimum_voltage_margin_pu'),
+            pre_scope='complete_routine_plan_at_realized_delivery_before_extra_AC_recourse',
             service_known=True,departure_energy_deficit_kwh=tr['departure_energy_deficit_kwh'],
             fcs_wait_max_minutes=tr['fcs_wait_max_minutes'],queue_vehicle_min=tr['queue_vehicle_min'],
             native_rescue_count=tr['native_rescue_count'],traffic=tr,weights=weights.tolist(),
+            mobility_recovery_energy_deficit_kwh=tr['departure_energy_deficit_kwh'],
+            service_deficit_scope='native failed departure: gap to reachable recovery charging, not all contractual charging requests',
             generation_plan_mw=planned_pg.tolist(),protection_trials=attempts,
+            routine_operating_point=point,pre_routine_AC=pre,
+            correction_evidence=correction_evidence(pre,ac,exo,self.c),
+            forecast_allocation_guard=dict(available_before_delivery=True,allocation_scale=scale,
+                changed=bool(scale<1.),diagnostic_known=guard_request['known'],
+                requested_constraints=constraint_triggers(guard_request,self.c),
+                diagnostic=guard_request,applied_diagnostic=guard_applied,forecast_values=predicted.tolist(),
+                trigger_scope='forecast diagnostic only; not a realized risk event or proof of per-control necessity'),
             pre_guard_forecast_voltage_excess_pu=guard_request.get('voltage_excess_pu'),
             pre_guard_forecast_capacity_ratio_peak=guard_request.get('capacity_ratio_peak'),
-            electrical_risk_scope='realized_native_delivery_after_causal_allocation_before_active_AC_recourse',
+            electrical_risk_scope='complete_routine_plan_at_realized_delivery_before_extra_AC_recourse',
             forecast_issued_at=visible['issued_at'].tolist(),
             protection_information='visible_forecast_before_native_delivery',
             recourse_semantics='hourly_quasi_steady_fixed_EV_delivery')
-        row['intensity']=intensities(row)
+        row['intensity']=intensities(row,self.c)
+        row['risk_events_hour']=hourly_events(row,self.c)
+        row['source_curtailment_ratios']=source_curtailment_ratios(row,self.c)
         self.previous_power=actual.copy(); self.last_grid=ac; self.hour+=1
         self.history=(self.history+[dict(intensity=row['intensity'],actual_device_mw=actual.tolist(),
             ess_energy_mwh=self.ess.tolist(),backup_energy_mwh=self.backup.tolist(),weights=weights.tolist(),

@@ -12,6 +12,11 @@ OUTCOMES=['pre_voltage_excess_pu','pre_capacity_ratio_peak','max_line_loading_ra
     'wind_curtail_mwh','solar_curtail_mwh','total_operating_cost','allocation_capacity_reduction_mw']
 
 
+def validate_schema_contract(schema):
+    if schema.get('physics_version')!=VERSION or schema.get('risk_contract')!=RISK_VERSION:
+        raise ValueError('Different physical/risk contract; regenerate V4 trajectories, labels and checkpoint')
+
+
 def visible_features(ctx,candidate):
     history=ctx.get('history',[])
     if len(history)!=2 or any(len(x.get('traffic_quarters',[]))!=4 for x in history):
@@ -57,6 +62,8 @@ def raw_targets(record):
         r=dict(r)
         if 'voltage' in r: r.update(v_min=min(r['voltage']),v_max=max(r['voltage']))
         for j,f in enumerate(OUTCOMES):
+            if f in ('pre_voltage_excess_pu','pre_capacity_ratio_peak') and not r.get('pre_known',False):
+                continue
             value=r.get(f)
             if value is not None and np.isfinite(value): result['outcome'][h,j]=value; result['outcome_mask'][h,j]=True
         for key,fields,scale in [('resource',['ess_energy_mwh','backup_energy_remaining_mwh'],[2.,2.,2.,2.,6.,6.]),
@@ -122,8 +129,9 @@ def pack_records(records,output):
 
 def load_packed(folder):
     folder=Path(folder)
-    return dict(arrays={k:v for k,v in np.load(folder/'packed.npz').items()},
-        **{k:json.loads((folder/(k+'.json')).read_text(encoding='utf-8')) for k in ['metadata','schema','scalers']})
+    info={k:json.loads((folder/(k+'.json')).read_text(encoding='utf-8')) for k in ['metadata','schema','scalers']}
+    validate_schema_contract(info['schema'])
+    return dict(arrays={k:v for k,v in np.load(folder/'packed.npz').items()},**info)
 
 
 def transform_context(ctx,candidate,scalers):

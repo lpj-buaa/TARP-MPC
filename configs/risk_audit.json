@@ -1,0 +1,9 @@
+{
+  "mode": "risk_audit",
+  "sources": [{"date":"2024-04-01","role":"audit","seed":42}],
+  "branch_hours": [26],
+  "candidate_count": 4,
+  "candidate_seed": 42,
+  "preference_anchors": [[0.25,0.25,0.25,0.25]],
+  "v2g_participation": 0.5
+}

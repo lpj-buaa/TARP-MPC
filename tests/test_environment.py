@@ -14,6 +14,7 @@ def test_hourly_closed_loop_never_changes_delivered_energy_after_ac(tmp_path):
         assert row['ess_balance_error_mwh']<1e-8
         assert np.allclose(env.backup,np.full(2,6)-row['backup_by_feeder_mw'])
         assert env.hour==1 and env.traffic.inst.ctime==3600
-        assert row['risk_contract']=='four_physical_risks_0p93_1p07_v3'
+        from tarp37.contract import RISK_VERSION
+        assert row['risk_contract']==RISK_VERSION
         assert row['pre_known']
     finally: env.close()

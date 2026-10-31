@@ -20,3 +20,18 @@ def test_visible_forecast_cannot_use_a_future_issue():
     import pytest
     with pytest.raises(ValueError, match='publication'):
         trace.visible(now)
+
+
+def test_actual_eia_renewables_use_hour_end_as_interval_end_not_start():
+    from tarp37.data import ForecastTrace
+    from tarp37.assets import PROJECT
+    trace=ForecastTrace(); now=trace.time_for_date('2024-04-02',7)
+    with np.load(PROJECT/'artifacts/data/hourly.npz') as cached:
+        pos=int(np.searchsorted(cached['time_s'],now))
+        end=int(np.searchsorted(cached['time_s'],now+3600))
+        want=cached['actual'][pos].copy()
+        want[1:3]=cached['actual'][end,1:3]
+    want*=trace.scale
+    want[1]=np.clip(want[1],0.,trace.wind_nameplate)
+    want[2]=np.clip(want[2],0.,trace.solar_nameplate)
+    assert np.allclose(trace.actual(now)[:3],want[:3]), 'EIA period T+1 describes interval [T,T+1), unlike CAISO interval-start'

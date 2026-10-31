@@ -16,7 +16,7 @@ import torch
 from torch import nn
 from .assets import PROJECT,PYTHON,sha
 from .collection import read,write,verify,stamp
-from .packing import load_packed,transform_context,raw_targets,INPUTS
+from .packing import load_packed,transform_context,raw_targets,INPUTS,validate_schema_contract
 from .model import ConsequenceStudent
 from .learning import resolve_device
 
@@ -100,6 +100,7 @@ def acquire(data_run,run_id,config,device='auto',policy='td3',episodes=12,resume
     write(protocol,requested)
     packed=load_packed(root/'pack_initial'); checkpoint=root/'fit_initial/checkpoint.pt'
     saved=torch.load(checkpoint,map_location='cpu',weights_only=False); device=resolve_device(device); torch.set_num_threads(1)
+    validate_schema_contract(saved['schema'])
     model=ConsequenceStudent(saved['schema'],saved['decoder'],saved['width']).to(device); model.load_state_dict(saved['state_dict']); model.eval()
     for parameter in model.parameters(): parameter.requires_grad_(False)
     records=[]

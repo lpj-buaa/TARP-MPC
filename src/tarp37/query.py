@@ -6,6 +6,7 @@ from .assets import PROJECT
 from .collection import read,write
 from .environment import UnifiedEnvironment,ExecutionUnknown
 from .risks import window_labels
+from .contract import VERSION,RISK_VERSION
 
 
 def next_attempt(parent,stem):
@@ -20,6 +21,9 @@ def next_attempt(parent,stem):
 def run_query(data_run,proposal_path,output_path):
     proposal=read(proposal_path); reference=proposal['reference']
     if reference['role']!='train': raise ValueError('Acquisition is restricted to training sources')
+    context=reference.get('context',{})
+    if context.get('physics_version')!=VERSION or context.get('risk_contract')!=RISK_VERSION:
+        raise ValueError('Different physical/risk contract; collect a new V4 native pool')
     source=PROJECT/'artifacts/runs'/data_run/'sources'/reference['source_id']
     snapshot=source/f"pool_{reference['pool_hour']}"
     if not snapshot.is_dir(): raise ValueError('Frozen native pool snapshot missing')
@@ -39,7 +43,7 @@ def run_query(data_run,proposal_path,output_path):
             plan=env.plan()
             try: rows.append(env.step(proposal['power_mw'] if h==0 else plan['power_mw'],plan))
             except ExecutionUnknown as error: rows.append(error.row); break
-        event,known=window_labels(rows)
+        event,known=window_labels(rows,contract=env.c)
         record={k:reference[k] for k in ['source_id','role','date','pool_hour','profile_id']}
         record.update(candidate_id=proposal['candidate_id'],family=proposal.get('family','td3_acquisition'),context=ctx,rows=rows,
                       event=event.tolist(),event_known=known.tolist())

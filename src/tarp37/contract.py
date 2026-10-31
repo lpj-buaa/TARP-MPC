@@ -9,8 +9,8 @@ from .assets import activate, CASE, TRAFFIC_SOURCE, sha
 activate()
 from native_grid.case import CaseInventory
 
-VERSION = 'native37_pq_ac_0p9ka_economics_v3'
-RISK_VERSION = 'four_physical_risks_0p93_1p07_v3'
+VERSION = 'native37_complete_plan_ac_hour_start_v4'
+RISK_VERSION = 'four_boundary_events_complete_plan_v4'
 RISK_NAMES = ['Voltage', 'NetworkCapacity', 'ChargingService', 'RenewableCurtailment']
 
 
@@ -32,6 +32,11 @@ class PhysicalContract:
     backup_initial_mwh: float = 6.
     waiting_sla_minutes: float = 30.
     renewable_utilization_target: float = .9
+    voltage_tolerance_pu: float = 1e-6
+    capacity_ratio_tolerance: float = 1e-6
+    power_tolerance_mw: float = 1e-6
+    service_energy_tolerance_kwh: float = .001
+    renewable_energy_tolerance_mwh: float = 1e-8
     ess_capacity_mwh: float = 2.
     ess_min_mwh: float = .2
     ess_max_mwh: float = 1.8
@@ -73,7 +78,7 @@ class PhysicalContract:
 
     def manifest(self):
         return dict(version=VERSION, risk_version=RISK_VERSION, risk_names=RISK_NAMES,
-            electrical_risk_scope='realized_native_delivery_after_causal_allocation_before_active_AC_recourse',
+            electrical_risk_scope='complete_routine_plan_at_realized_delivery_before_extra_AC_recourse',
             raw_request_diagnostic='separate forecast-based allocation pressure, not a realized physical event',
             case_dir=str(CASE), grid_sha256=sha(self.case.grid_file),
             bus_order=list(self.case.buses), device_order=self.device_names, device_bus=self.device_bus,
@@ -86,4 +91,11 @@ class PhysicalContract:
             emergency=dict(power_mw_per_feeder=self.backup_power_mw, initial_energy_mwh_per_feeder=self.backup_initial_mwh),
             clock=dict(grid_seconds=3600, traffic_statistics_seconds=900, exchange_seconds=10, traffic_physics_seconds=1),
             generation_model='Native independent P/Q bounds; root Pmin also retained; no implicit export allowance',
-            curtailment_target=self.renewable_utilization_target, fcs_wait_sla_minutes=self.waiting_sla_minutes)
+            curtailment_target=self.renewable_utilization_target, fcs_wait_sla_minutes=self.waiting_sla_minutes,
+            numerical_tolerances=dict(voltage_pu=self.voltage_tolerance_pu,capacity_ratio=self.capacity_ratio_tolerance,
+                power_mw=self.power_tolerance_mw,service_energy_kwh=self.service_energy_tolerance_kwh,
+                renewable_energy_mwh=self.renewable_energy_tolerance_mwh),
+            risk_semantics=dict(Voltage='routine AC voltage outside limits, not deviation or instability',
+                NetworkCapacity='line ampacity or positive PCC import exceeds capacity; export permission recorded separately',
+                ChargingService='native mobility/recovery energy deficit or start-of-charge waiting exceeds scenario SLA',
+                RenewableCurtailment='either wind or solar exceeds the six-hour operating curtailment budget, not statutory annual compliance'))

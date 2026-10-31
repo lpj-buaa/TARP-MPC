@@ -10,7 +10,7 @@ import numpy as np
 import torch
 from torch.nn import functional as F
 from .model import ConsequenceStudent,loss_terms,masked_huber
-from .packing import INPUTS,OUTCOMES,pack_records,load_packed
+from .packing import INPUTS,OUTCOMES,pack_records,load_packed,validate_schema_contract
 from .collection import read,write,verify,stamp
 from .assets import PROJECT,WORKSPACE,sha
 from .training_protocol import ensure_protocol
@@ -60,6 +60,7 @@ def tensor_batch(packed,idx,device):
 
 
 def train_expert(packed,name,out,config,device='auto'):
+    validate_schema_contract(packed['schema'])
     out=Path(out); out.mkdir(parents=True,exist_ok=True); device=resolve_device(device)
     seed=int(config.get('seed',42)); random.seed(seed); np.random.seed(seed); torch.manual_seed(seed)
     torch.set_num_threads(int(config.get('torch_threads',1)))
@@ -103,6 +104,7 @@ def train_expert(packed,name,out,config,device='auto'):
 
 def predict_checkpoint(path,packed,device='auto'):
     saved=torch.load(path,map_location='cpu',weights_only=False); device=resolve_device(device)
+    validate_schema_contract(packed['schema']); validate_schema_contract(saved['schema'])
     model=ConsequenceStudent(saved['schema'],saved['decoder'],saved['width']).to(device); model.load_state_dict(saved['state_dict']); model.eval()
     result={}
     with torch.no_grad():
