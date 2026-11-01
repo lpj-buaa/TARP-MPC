@@ -34,8 +34,23 @@
 
 Adaptive Stress Testing已经用RL搜索系统失效，因此不能把“用RL找风险”本身写作首次提出。[AST原始论文](https://arxiv.org/abs/1811.02188)。Action-conditional prediction本身也不是新范式，[原始研究](https://proceedings.neurips.cc/paper_files/paper/2015/hash/6ba3af5d7b2790e73f0de32e5c8c1798-Abstract.html)可作为方法背景。本文需要突出运营干预、资源与接续响应、任务相关后果以及同状态配对验证的组合研究对象。近期出现的前瞻风险与剩余调节能力研究，应进一步做方法对照，而不凭标题判定相同或不同。
 
+2026年10月5日发表的[Forward-Looking Risk-Constrained DRL](https://ietresearch.onlinelibrary.wiley.com/doi/10.1049/rpg2.70389)已经将动作后的剩余调节能力与前瞻风险联系，并把该信号用于约束SAC。因此“动作影响后续恢复能力”是相关问题背景。本文可检验的区别在于用运营动作采集学习经验，以业务MPC接续产生电网—充电—出行后果，再构建独立于方案生成器的执行前审查。这个区别是基于两篇实现目标的判断，是否有方法价值仍需本轮对照结果。
+
+2026年10月28日发表的[CauCity-WM](https://link.springer.com/article/10.1007/s44443-026-01368-0)采用共享扰动与扩散噪声的反事实世界模型，并进行风险敏感规划。我们的配对分支是物理仿真控制实验，未从观测数据辨识该生成因果模型；增量应落在车网资源与滚动响应、压缩后果学习以及预算约束的复合证据利用，而非共享噪声或反事实预测本身。
+
+对照执行入口还核查出随机/Sobol采样的公共初始化曾无条件更新一个不用来选动作的RL。已改为只有TD3采样器暖启动，两个控制臂不更新actor/critic；这不改变其随机/Sobol动作定义，也不接触已运行的物理采集。新增行为测试验证该区别。
+
 ## 运行位置和恢复
 
 总状态：`artifacts/workflows/full_v4_s42_20261101/status.json`。阶段stdout、stderr、退出码和最后证据表保存在同目录。物理数据保存在 `artifacts/runs/risk37_formal_v4_s42_20261101`；学习主运行保存在 `artifacts/retraining/risk37_td3_v4_s42_20261101`，其余对照分别以noacq/sobol/random命名。
 
 运行协调脚本会等待已启动的物理采集，之后依次核查、训练和汇总。失败时保存阶段和日志，不将失败阶段写为完成；恢复时校验已有产物并跳过已完成工作。它不替代最后基于原始结果的科研判读。
+
+运行期检查已登记为本聊天的小时级heartbeat（id `v4`）；无变化时静默，只在主要阶段完成、失败或证据重要变化时反馈，全部结束后停止。下面的命令仅用于协调器确实退出后的恢复；不要同时再启动第二个采集器或GPU协调器。
+
+```powershell
+Set-Location -LiteralPath 'D:\博士资料包\科研\科研\AAAI_RL\tarp_37_risk_audit'
+Get-Content -LiteralPath '.\artifacts\workflows\full_v4_s42_20261101\status.json' -Raw
+# 协调器已退出时恢复；已封存的学习阶段会按hash复用。
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run_complete_v4.ps1
+```

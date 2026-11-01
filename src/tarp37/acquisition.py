@@ -79,6 +79,12 @@ def actor_state(ctx,scalers):
     return np.concatenate([f[k].reshape(-1) for k in ['nodes','history','forecast','context','initial_resource','initial_response','initial_weight']]).astype(np.float32)
 
 
+def warm_start_acquisition(agent,policy,steps=200):
+    """Only the learned sampler fits actor/critics; controls use no RL updates."""
+    if policy=='td3':
+        for _ in range(steps): agent.update()
+
+
 def acquire(data_run,run_id,config,device='auto',policy='td3',episodes=12,resume=False):
     if any(not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,100}',v) for v in [data_run,run_id]): raise ValueError('Invalid RunId')
     root=PROJECT/'artifacts/retraining'/run_id; out=root/'explore'; marker=out/'complete.json'
@@ -135,7 +141,7 @@ def acquire(data_run,run_id,config,device='auto',policy='td3',episodes=12,resume
         if action is None: continue
         reward,_=utility(record)
         agent.add(actor_state(record['context'],packed['scalers']),action,reward)
-    for _ in range(200): agent.update()
+    warm_start_acquisition(agent,policy)
     from scipy.stats import qmc
     points=qmc.Sobol(51,scramble=True,seed=seed).random_base2(int(np.ceil(np.log2(max(episodes,1)))))[:episodes]*2-1
     dependencies=[checkpoint,Path(__file__),PROJECT/'src/tarp37/query.py',PROJECT/'src/tarp37/model.py',
