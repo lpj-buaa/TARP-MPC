@@ -44,6 +44,8 @@ Adaptive Stress Testing已经用RL搜索系统失效，因此不能把“用RL�
 
 总状态：`artifacts/workflows/full_v4_s42_20261101/status.json`。阶段stdout、stderr、退出码和最后证据表保存在同目录。物理数据保存在 `artifacts/runs/risk37_formal_v4_s42_20261101`；学习主运行保存在 `artifacts/retraining/risk37_td3_v4_s42_20261101`，其余对照分别以noacq/sobol/random命名。
 
+物理采集的执行session/PID另存同目录`collector.json`；尚未封存的采集错误可从该session读取。当前已完成运行入口验证及57项测试；初批8个source已推进至首个32小时分支点，尚未写出正式结果，不提前填写模型效果。
+
 运行协调脚本会等待已启动的物理采集，之后依次核查、训练和汇总。失败时保存阶段和日志，不将失败阶段写为完成；恢复时校验已有产物并跳过已完成工作。它不替代最后基于原始结果的科研判读。
 
 运行期检查已登记为本聊天的小时级heartbeat（id `v4`）；无变化时静默，只在主要阶段完成、失败或证据重要变化时反馈，全部结束后停止。下面的命令仅用于协调器确实退出后的恢复；不要同时再启动第二个采集器或GPU协调器。
