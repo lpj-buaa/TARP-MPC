@@ -3,6 +3,7 @@ import numpy as np
 
 def normal_row():
     return dict(pre_known=True,pre_voltage_excess_pu=0.,pre_capacity_ratio_peak=.8,
+        regulation_known=True,regulated_voltage_excess_pu=0.,
         pre_voltage=[.94,1.06],pre_pcc_export_permission_excess_mw=2.,
         service_known=True,departure_energy_deficit_kwh=0.,fcs_wait_max_minutes=0.,
         wind_available_mwh=1.,solar_available_mwh=1.,wind_curtail_mwh=0.,solar_curtail_mwh=0.)

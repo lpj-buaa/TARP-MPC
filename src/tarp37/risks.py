@@ -11,8 +11,8 @@ def window_labels(rows,horizon=6,utilization=None,wait_sla=None,contract=None):
     for k in range(4):
         complete=len(rows)==horizon; positive=False
         if k in (0,1):
-            observed=[r for r in rows if r.get('pre_known',False)]
-            field='pre_voltage_excess_pu' if k==0 else 'pre_capacity_ratio_peak'
+            observed=[r for r in rows if r.get('regulation_known' if k==0 else 'pre_known',False)]
+            field='regulated_voltage_excess_pu' if k==0 else 'pre_capacity_ratio_peak'
             threshold=c.voltage_tolerance_pu if k==0 else 1+c.capacity_ratio_tolerance
             positive=any(r[field]>threshold for r in observed); complete &= len(observed)==horizon
         elif k==2:
@@ -39,7 +39,7 @@ def source_curtailment_ratios(row,contract=None):
 
 def intensities(row,contract=None):
     c=contract or PhysicalContract.load()
-    voltage=row.get('pre_voltage_excess_pu')
+    voltage=row.get('regulated_voltage_excess_pu') if row.get('regulation_known') else None
     capacity=row.get('pre_capacity_ratio_peak')
     return [voltage/.01 if voltage is not None else None,
             max(capacity-1.,0.)/.1 if capacity is not None else None,
@@ -50,7 +50,7 @@ def intensities(row,contract=None):
 def hourly_events(row,contract=None):
     """Only true event boundaries; the RE budget requires the complete window."""
     c=contract or PhysicalContract.load()
-    return dict(Voltage=bool(row['pre_voltage_excess_pu']>c.voltage_tolerance_pu) if row['pre_known'] else None,
+    return dict(Voltage=bool(row['regulated_voltage_excess_pu']>c.voltage_tolerance_pu) if row.get('regulation_known') else None,
         NetworkCapacity=bool(row['pre_capacity_ratio_peak']>1+c.capacity_ratio_tolerance) if row['pre_known'] else None,
         ChargingService=bool(row['departure_energy_deficit_kwh']>c.service_energy_tolerance_kwh or
             row['fcs_wait_max_minutes']>c.waiting_sla_minutes+1e-6) if row['service_known'] else None,

@@ -15,6 +15,7 @@ def test_forecaster_predicts_delivered_response_instead_of_forcing_requested_pow
 
 def test_empty_or_future_targets_cannot_enter_visible_features():
     from tarp37.packing import visible_features
+    from tarp37.contract import VERSION,RISK_VERSION
     import pytest
     with pytest.raises(ValueError,match='history'):
-        visible_features(dict(history=[]),np.zeros(51))
+        visible_features(dict(history=[],physics_version=VERSION,risk_contract=RISK_VERSION),np.zeros(51))

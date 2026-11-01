@@ -9,8 +9,8 @@ from .assets import activate, CASE, TRAFFIC_SOURCE, sha
 activate()
 from native_grid.case import CaseInventory
 
-VERSION = 'native37_complete_plan_ac_hour_start_v4'
-RISK_VERSION = 'four_boundary_events_complete_plan_v4'
+VERSION = 'native37_bounded_routine_Q_hour_start_v5'
+RISK_VERSION = 'four_boundary_events_after_routine_Q_v5'
 RISK_NAMES = ['Voltage', 'NetworkCapacity', 'ChargingService', 'RenewableCurtailment']
 
 
@@ -95,7 +95,7 @@ class PhysicalContract:
             numerical_tolerances=dict(voltage_pu=self.voltage_tolerance_pu,capacity_ratio=self.capacity_ratio_tolerance,
                 power_mw=self.power_tolerance_mw,service_energy_kwh=self.service_energy_tolerance_kwh,
                 renewable_energy_mwh=self.renewable_energy_tolerance_mwh),
-            risk_semantics=dict(Voltage='routine AC voltage outside limits, not deviation or instability',
+            risk_semantics=dict(Voltage='residual AC voltage after bounded routine Q; numerical unknown is masked',
                 NetworkCapacity='line ampacity or positive PCC import exceeds capacity; export permission recorded separately',
                 ChargingService='native mobility/recovery energy deficit or start-of-charge waiting exceeds scenario SLA',
                 RenewableCurtailment='either wind or solar exceeds the six-hour operating curtailment budget, not statutory annual compliance'))

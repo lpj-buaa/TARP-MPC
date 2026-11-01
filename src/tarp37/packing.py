@@ -6,7 +6,7 @@ from .assets import PROJECT,sha
 from .contract import PhysicalContract,RISK_VERSION,VERSION
 
 INPUTS=['nodes','history','forecast','context','action','initial_resource','initial_response','initial_weight','candidate_request']
-OUTCOMES=['pre_voltage_excess_pu','pre_capacity_ratio_peak','max_line_loading_ratio','grid_import_mw',
+OUTCOMES=['regulated_voltage_excess_pu','pre_capacity_ratio_peak','max_line_loading_ratio','grid_import_mw',
     'local_generation_mw','loss_mwh','v_min','v_max','queue_vehicle_min','departure_energy_deficit_kwh',
     'fcs_wait_max_minutes','non_ev_shed_mwh','backup_mwh','wind_available_mwh','solar_available_mwh',
     'wind_curtail_mwh','solar_curtail_mwh','total_operating_cost','allocation_capacity_reduction_mw']
@@ -14,10 +14,11 @@ OUTCOMES=['pre_voltage_excess_pu','pre_capacity_ratio_peak','max_line_loading_ra
 
 def validate_schema_contract(schema):
     if schema.get('physics_version')!=VERSION or schema.get('risk_contract')!=RISK_VERSION:
-        raise ValueError('Different physical/risk contract; regenerate V4 trajectories, labels and checkpoint')
+        raise ValueError('Different physical/risk contract; V5 requires bounded-routine-Q trajectories and labels')
 
 
 def visible_features(ctx,candidate):
+    validate_schema_contract(ctx)
     history=ctx.get('history',[])
     if len(history)!=2 or any(len(x.get('traffic_quarters',[]))!=4 for x in history):
         raise ValueError('Two real grid hours and eight native quarter-hour history records required')
@@ -62,7 +63,9 @@ def raw_targets(record):
         r=dict(r)
         if 'voltage' in r: r.update(v_min=min(r['voltage']),v_max=max(r['voltage']))
         for j,f in enumerate(OUTCOMES):
-            if f in ('pre_voltage_excess_pu','pre_capacity_ratio_peak') and not r.get('pre_known',False):
+            if f=='regulated_voltage_excess_pu' and not r.get('regulation_known',False):
+                continue
+            if f=='pre_capacity_ratio_peak' and not r.get('pre_known',False):
                 continue
             value=r.get(f)
             if value is not None and np.isfinite(value): result['outcome'][h,j]=value; result['outcome_mask'][h,j]=True
@@ -91,6 +94,8 @@ def _fit(values,mask=None):
 
 def pack_records(records,output):
     output=Path(output); output.mkdir(parents=True,exist_ok=True)
+    if any(r.get('training_eligible') is False for r in records):
+        raise ValueError('V4 offline label audit is not a V5 closed-loop training dataset')
     if any(r['context'].get('physics_version')!=VERSION for r in records):
         raise ValueError('Different physical/operating contract; regenerate trajectories before retraining')
     features=[visible_features(r['context'],r['context']['candidate_mw']) for r in records]

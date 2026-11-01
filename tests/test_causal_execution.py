@@ -26,6 +26,7 @@ def test_failed_post_delivery_recourse_does_not_erase_delivery(tmp_path,monkeypa
             if kwargs.get('allow_shedding',True): return dict(physical_valid=False,converged=False,status='forced_test_unknown')
             return original(*args,**kwargs)
         monkeypatch.setattr(env.network,'dispatch',dispatch)
+        monkeypatch.setattr(env.regulator,'review',lambda *args:dict(known=False,physical_valid=False,point=None,status='forced_Q_unknown'))
         with pytest.raises(ExecutionUnknown) as error: env.step(plan['power_mw'],plan)
         assert env.traffic.inst.ctime==3600
         assert 'station_mean_mw' in error.value.row['traffic']

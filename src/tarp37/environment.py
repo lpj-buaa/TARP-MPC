@@ -12,6 +12,7 @@ from .mpc import BusinessMPC,update_preferences,routine_point
 from .contract import RISK_VERSION,VERSION
 from .risks import intensities,hourly_events,source_curtailment_ratios
 from .evidence import correction_evidence,constraint_triggers
+from .regulation import RoutineQRegulator,extra_recourse
 
 
 class ExecutionUnknown(RuntimeError):
@@ -24,6 +25,7 @@ class UnifiedEnvironment:
     def __init__(self,output,date='2024-04-01',seed=42,participation=.5):
         self.output=Path(output); self.output.mkdir(parents=True,exist_ok=True)
         self.network=UnifiedNetwork(); self.c=self.network.c; self.trace=ForecastTrace()
+        self.regulator=RoutineQRegulator(self.network)
         self.epoch=self.trace.time_for_date(date); self.hour=0; self.date=date; self.seed=seed
         self.traffic=NativeTraffic(self.output/'traffic',participation,seed)
         self.controller=BusinessMPC(self.network); self.ess=np.ones(4); self.backup=np.full(2,self.c.backup_initial_mwh)
@@ -102,7 +104,8 @@ class UnifiedEnvironment:
         # Actuals are first queried for settlement after irreversible native
         # delivery. Only generation/Q, curtailment and non-EV shedding can adapt.
         exo=self.trace.actual(now); pre=self.network.pressure(exo,actual,point)
-        ac=self.network.dispatch(exo,actual,before_backup,allow_shedding=True)
+        normal=self.regulator.review(exo,actual,point)
+        ac=normal['point'] if normal['physical_valid'] else self.network.dispatch(exo,actual,before_backup,allow_shedding=True)
         self.ess=before_ess+np.maximum(actual[47:],0.)*self.c.ess_efficiency-np.maximum(-actual[47:],0.)/self.c.ess_efficiency
         ess_error=np.max(np.abs(self.ess-before_ess-np.maximum(actual[47:],0.)*self.c.ess_efficiency+np.maximum(-actual[47:],0.)/self.c.ess_efficiency))
         if not ac['physical_valid']:
@@ -111,6 +114,8 @@ class UnifiedEnvironment:
                 service_known=True,departure_energy_deficit_kwh=tr['departure_energy_deficit_kwh'],
                 fcs_wait_max_minutes=tr['fcs_wait_max_minutes'],pre_known=pre['known'],
                 pre_voltage_excess_pu=pre.get('voltage_excess_pu'),pre_capacity_ratio_peak=pre.get('capacity_ratio_peak'),
+                regulation_known=normal['known'],normal_regulation=normal,
+                regulated_voltage_excess_pu=normal['point']['voltage_excess_pu'] if normal['known'] else None,
                 routine_operating_point=point,pre_routine_AC=pre,
                 correction_evidence=correction_evidence(pre,ac,exo,self.c),
                 execution_status='delivery_retained_AC_unknown_suffix_unknown',protection_trials=attempts))
@@ -123,6 +128,9 @@ class UnifiedEnvironment:
             battery_balance_error_kwh=abs(tr['battery_balance_error_kwh']),ess_balance_error_mwh=float(ess_error),
             backup_energy_remaining_mwh=self.backup.tolist(),ess_energy_mwh=self.ess.tolist(),
             pre_known=pre['known'],pre_voltage_excess_pu=pre.get('voltage_excess_pu'),
+            regulation_known=normal['known'],normal_regulation=normal,
+            regulated_voltage_excess_pu=normal['point']['voltage_excess_pu'] if normal['known'] else None,
+            extra_recourse=extra_recourse(normal,ac),
             pre_capacity_ratio_peak=pre.get('capacity_ratio_peak'),pre_voltage=pre.get('voltage'),
             pre_line_loading_ratio=pre.get('loading_ratio'),
             pre_pcc_import_ratio_peak=pre.get('pcc_import_ratio_peak'),
@@ -146,7 +154,7 @@ class UnifiedEnvironment:
                 trigger_scope='forecast diagnostic only; not a realized risk event or proof of per-control necessity'),
             pre_guard_forecast_voltage_excess_pu=guard_request.get('voltage_excess_pu'),
             pre_guard_forecast_capacity_ratio_peak=guard_request.get('capacity_ratio_peak'),
-            electrical_risk_scope='complete_routine_plan_at_realized_delivery_before_extra_AC_recourse',
+            electrical_risk_scope='Voltage_after_routine_bounded_Q_capacity_raw_plan_separate_extra_recours',
             forecast_issued_at=visible['issued_at'].tolist(),
             protection_information='visible_forecast_before_native_delivery',
             recourse_semantics='hourly_quasi_steady_fixed_EV_delivery')

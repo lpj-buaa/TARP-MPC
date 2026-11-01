@@ -4,7 +4,7 @@ import numpy as np
 
 
 def example_context(candidate):
-    from tarp37.contract import VERSION
+    from tarp37.contract import VERSION,RISK_VERSION
     history=[]
     for h in range(2):
         history.append(dict(grid_import_mw=8.,local_generation_mw=2.,loss_mwh=.1,voltage=[1.]*66,
@@ -14,7 +14,7 @@ def example_context(candidate):
     view=dict(charge_cap_mw=[.1]*51,discharge_cap_mw=[.05]*51,need_mwh=[.02]*47,due_hour=[2.]*47,
         v2g_available_mwh=[.01]*47,previous_power_mw=[0.]*51,arrival_prior_mw=np.zeros((6,47)).tolist(),
         ess_energy_mwh=[1.]*4,queue_count=0)
-    return dict(now=1700000000,hour=26,physics_version=VERSION,history=history,view=view,
+    return dict(now=1700000000,hour=26,physics_version=VERSION,risk_contract=RISK_VERSION,history=history,view=view,
         forecast_issued_at=np.full((6,3),1699999000).tolist(),visible_forecast=np.tile([10.,1.,2.,30.],(6,1)).tolist(),
         bus_net_p_mw=[.1]*66,bus_q_mvar=[.05]*66,bus_voltage_pu=[1.]*66,
         preference_anchor=[.25]*4,weights=[.25]*4,backup_energy_mwh=[6.]*2,
@@ -30,6 +30,7 @@ def example_records():
             rows=[]
             for h in range(6):
                 rows.append(dict(risk_contract=RISK_VERSION,pre_known=True,pre_voltage_excess_pu=.001*candidate,
+                    regulation_known=True,regulated_voltage_excess_pu=.001*candidate,
                     pre_capacity_ratio_peak=.5,max_line_loading_ratio=.4,grid_import_mw=8.,local_generation_mw=2.,loss_mwh=.1+.01*candidate,
                     voltage=[.99]*66,queue_vehicle_min=2.*candidate,departure_energy_deficit_kwh=0.,fcs_wait_max_minutes=31.*candidate,
                     non_ev_shed_mwh=0.,backup_mwh=0.,wind_available_mwh=1.,solar_available_mwh=1.,wind_curtail_mwh=.2*candidate,

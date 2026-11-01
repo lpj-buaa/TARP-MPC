@@ -57,7 +57,7 @@ def initialize(root,config,inputs,resume=False):
 
 
 def simulation_inputs():
-    files=['assets.py','contract.py','data.py','network.py','mpc.py','traffic.py','environment.py','risks.py','evidence.py','collection.py']
+    files=['assets.py','contract.py','data.py','network.py','mpc.py','traffic.py','environment.py','risks.py','evidence.py','regulation.py','collection.py']
     inputs={str(PROJECT/'src/tarp37'/p):sha(PROJECT/'src/tarp37'/p) for p in files}
     inputs.update(frozen_inputs())
     for p in (TRAFFIC_SOURCE/'case').rglob('*'):
