@@ -44,7 +44,11 @@ Adaptive Stress Testing已经用RL搜索系统失效，因此不能把“用RL�
 
 总状态：`artifacts/workflows/full_v4_s42_20261101/status.json`。阶段stdout、stderr、退出码和最后证据表保存在同目录。物理数据保存在 `artifacts/runs/risk37_formal_v4_s42_20261101`；学习主运行保存在 `artifacts/retraining/risk37_td3_v4_s42_20261101`，其余对照分别以noacq/sobol/random命名。
 
-物理采集的执行session/PID另存同目录`collector.json`；尚未封存的采集错误可从该session读取。当前已完成运行入口验证及57项测试；初批8个source已推进至首个32小时分支点，尚未写出正式结果，不提前填写模型效果。
+物理采集的执行session/PID另存同目录`collector.json`。物理采集已完成28个source、896分支、5376未来小时，全部执行点AC有效；保存记录独立核验509440项检查、0错误。新协调器PID9028已完成物理audit/report并启动TD3学习流程，初始预警器训练完成，正在执行128次查询。模型最终confirm评价尚未完成。
+
+第一次协调器在物理audit成功后因Windows PowerShell子进程ExitCode为空误报失败。真实退出0和7的两个用例已复现并验证最小修复：等待前保留子进程句柄。失败现场保存在`status_before_exitcode_recovery_20261101.json`，恢复日志使用`runner_recovery_20261101.*.log`。没有重复物理采集，也没有并行启动第二个GPU流程。此次启动器与风险/物理接口的10项针对性测试通过。
+
+用户新增要求的Voltage专项诊断见`docs/VOLTAGE_ROUTINE_REGULATION_DIAGNOSIS_2026-11-01.md`。全量记录显示窗口标签894/896为正，但实际执行后5376小时均未越限；MPC线性计划贴边和固定Q的反事实语义需要与常规调压区分。诊断AC探针独立于原始数据和训练流程，不改动当前标签或物理参数。
 
 运行协调脚本会等待已启动的物理采集，之后依次核查、训练和汇总。失败时保存阶段和日志，不将失败阶段写为完成；恢复时校验已有产物并跳过已完成工作。它不替代最后基于原始结果的科研判读。
 
