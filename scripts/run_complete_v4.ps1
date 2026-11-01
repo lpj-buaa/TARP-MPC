@@ -48,6 +48,9 @@ function Run-Python([string]$Name,[string]$Python,[string[]]$PythonArgs) {
  $stderr=Join-Path $workflow ($Name+'_'+$stamp+'.err.log')
  $state.stdout=$stdout; $state.stderr=$stderr; Save-State
  $child=Start-Process -FilePath $Python -ArgumentList $PythonArgs -WorkingDirectory $project -WindowStyle Hidden -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+ # Retain the native handle before waiting: Windows PowerShell 5.1 can
+ # otherwise report a null ExitCode for a completed Start-Process child.
+ $childHandle=$child.Handle
  $state.child_pid=$child.Id; Save-State
  $child.WaitForExit()
  if ($child.ExitCode -ne 0) { throw "$Name failed, exit $($child.ExitCode); see $stderr and $stdout" }
