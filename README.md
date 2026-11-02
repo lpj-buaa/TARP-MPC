@@ -42,3 +42,30 @@ $env:PYTHONPATH = Join-Path $infoProject 'src'
 ```
 
 `src/tarp_info`负责画像、Oracle、采集、版本绑定与真实接续扩展；`scripts/opportunity_probe.py`只读复用原MPC构造器测量方向支持区间。`src/tarp37`继承V5且保持不变。结果分别位于 `artifacts/information/information_pilot_v2` 和 `artifacts/native_information/v5_information_sanity_v1`，二者物理版本及证据用途分别记录。
+
+
+## 第二轮：调度范围、转折与恢复边界
+
+代码在独立的src/tarp_boundary，结果在artifacts/boundary_v2/boundary_formal_s42_v2；前一轮tarp_info及原tarp37保持不变。新库为六个同状态情境、两类动作的12个内点剂量，每个情境另有3条公共初始经验。先真实推演、再用同一Oracle池比较四个主方法和两个组件消融，预警器仍不训练。
+
+```powershell
+Set-Location -LiteralPath 'D:\博士资料包\科研\科研\AAAI_RL\tarp_37_information_acquisition'
+
+# 已完成结果的核验复用；不重新采集、不重新拟合
+powershell -NoProfile -ExecutionPolicy Bypass `
+  -File .\scripts\run_boundary_acquisition.ps1 `
+  -RunId boundary_formal_s42_v2 -Stage fit
+
+# 新完整实验使用新RunId：会调用真实仿真并训练新采集器
+powershell -NoProfile -ExecutionPolicy Bypass `
+  -File .\scripts\run_boundary_acquisition.ps1 `
+  -RunId boundary_repeat_s42_v1 -Stage all -Workers 4
+
+# 只读最终验收
+$env:PYTHONPATH = Join-Path (Get-Location) 'src'
+& '..\tarp_risk_discovery\.venv\Scripts\python.exe' -B `
+  .\scripts\verify_boundary.py `
+  --root .\artifacts\boundary_v2\boundary_formal_s42_v2 --final
+```
+
+本轮设计与操作定义：docs/superpowers/specs/2026-11-02-dispatch-boundary-design.md；执行计划：docs/superpowers/plans/2026-11-02-dispatch-boundary.md。原生采集与域读出运行时不要修改其协议绑定源码。Windows不得用stdin脚本启动ProcessPool；已提供模块入口和PowerShell主流程。
