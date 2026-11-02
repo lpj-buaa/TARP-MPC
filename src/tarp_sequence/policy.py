@@ -63,7 +63,7 @@ def trajectories(model,cases,predictions,budgets,device,deterministic=False):
             logits,values=model(stack_features(features,device));dist=torch.distributions.Categorical(logits=logits)
             actions=logits.argmax(-1) if deterministic else dist.sample();logp=dist.log_prob(actions)
         for slot,i in enumerate(active):
-            action=int(actions[slot]);reward=envs[i].step(action);rewards[i].append(reward)
+            action=int(actions[slot]);reward=envs[i].step(action,score=not deterministic);rewards[i].append(reward)
             histories[i].append(dict(features=features[slot],action=action,logp=float(logp[slot]),value=float(values[slot]),reward=reward))
     return histories,[e.metrics() for e in envs]
 

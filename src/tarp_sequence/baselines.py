@@ -49,6 +49,25 @@ def scores(case,env,prediction):
     return np.array(result)
 
 
+def marginal_scores(case,env,prediction):
+    """Predicted immediate gain of the SAME terminal utility, without hidden answers."""
+    from .environment import AcquisitionEnv
+    from .data import boundary_pairs
+    descriptors=predicted_descriptor(prediction);recovery=descriptors[:,15:18]>.1
+    valid=np.ones(len(descriptors),bool)
+    known=known_rows(case,env);known_indices={r['index'] for r in known}
+    for r in known:descriptors[r['index']]=r['descriptor'];recovery[r['index']]=r['recoverable']
+    for i in env.seen:
+        if i not in known_indices:valid[i]=False
+    items=[dict(family=f,dose=d) for f,d in zip(case['families'],case['doses'])]
+    surrogate=dict(descriptor=descriptors,valid=valid,recoverable=recovery,initial=case['initial'],boundary_pairs=boundary_pairs(items,valid,recovery))
+    estimate=AcquisitionEnv(surrogate,max(env.remaining_budget,1));estimate.seen=list(env.seen)
+    before=estimate.utility();values=np.full(len(descriptors),-np.inf)
+    for i in np.flatnonzero(env.available()):
+        estimate.seen.append(int(i));values[i]=estimate.utility()-before;estimate.seen.pop()
+    return values
+
+
 def select(case,env,prediction,method,rng,sobol=None):
     available=np.flatnonzero(env.available())
     if method=='random':return int(rng.choice(available))
@@ -66,9 +85,9 @@ def select(case,env,prediction,method,rng,sobol=None):
                 inside=[i for i in available if case['families'][i]==family and left['dose']<case['doses'][i]<right['dose']]
                 if inside:brackets.append((right['dose']-left['dose'],min(inside,key=lambda i:abs(case['doses'][i]-(left['dose']+right['dose'])/2))))
         if brackets:return int(max(brackets)[1])
-    if method=='bracket_random' or rng.random()<.25:return int(rng.choice(available))
+    if method=='bracket_random':return int(rng.choice(available))
     values=local_predictions(case,env,prediction) if method=='local' else prediction
-    rank=scores(case,env,values)
+    rank=marginal_scores(case,env,values)
     return int(available[np.argmax(rank[available])])
 
 
@@ -76,5 +95,5 @@ def run(case,prediction,method,budget,seed):
     from .environment import AcquisitionEnv
     env=AcquisitionEnv(case,min(budget,len(case['action'])-len(case['initial'])));rng=np.random.default_rng(seed)
     points=qmc.Sobol(2,scramble=True,seed=seed).random_base2(5)
-    while not env.done:env.step(select(case,env,prediction,method,rng,points))
+    while not env.done:env.step(select(case,env,prediction,method,rng,points),score=False)
     return env.metrics()

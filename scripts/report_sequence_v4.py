@@ -37,10 +37,17 @@ def table(headers,rows):return '| '+' | '.join(headers)+' |\n| '+' | '.join(['--
 
 def main():
     p=argparse.ArgumentParser();p.add_argument('--root',required=True);a=p.parse_args();root=Path(a.root);out=root/'report';out.mkdir(exist_ok=True)
-    data=read(root/'dataset.json');evaluation=read(root/'evaluation.json');rows=[r for r in evaluation['rows'] if r['role']=='confirm']
-    if not rows:rows=evaluation['rows']
+    data=read(root/'dataset.json');evaluation=read(root/'evaluation.json')
     scope=data.get('scope','');protocol=read(root/'learning_protocol.json')
     pilot='pilot' in scope or protocol['mode']=='smoke'
+    rows=[r for r in evaluation['rows'] if r['role']=='confirm'];primary_role='confirm'
+    if not rows:
+        if pilot:rows=evaluation['rows'];primary_role='engineering_resubstitution'
+        else:
+            write(root/'analysis.json',dict(supported=False,primary_role='confirm_unsupported',reason='No confirm contexts with full verified response descriptors',
+                                            available_roles=sorted({r['role'] for r in evaluation['rows']})))
+            (out/'index.html').write_text('<!doctype html><meta charset="utf-8"><h1>Confirm数据不支持正式比较</h1><p>没有具备完整核验后果画像的confirm情境；未用tune或cal数据替代。请查看response_diagnostics.json中的分项误差和支持情况。</p>','utf-8')
+            print(str(out/'index.html'));return
     methods=list(NAMES);summary={}
     for budget in [8,16,24]:
         summary[str(budget)]={}
@@ -50,7 +57,7 @@ def main():
                 values=source_values(rows,method,budget,metric)
                 summary[str(budget)][method][metric]=dict(mean=float(np.mean(list(values.values()))) if values else None,n_sources=len(values),sources=values)
     comparisons={m:{metric:contrast(rows,'ppo',m,16,metric) for metric in ['utility','distance','boundary_recall']} for m in methods if m!='ppo'}
-    write(root/'analysis.json',dict(summary=summary,comparisons=comparisons,primary_role='confirm',source_bootstrap=2000,development_pilot=pilot))
+    write(root/'analysis.json',dict(supported=True,summary=summary,comparisons=comparisons,primary_role=primary_role,source_bootstrap=2000,development_pilot=pilot))
     plt.rcParams.update({'font.family':'DejaVu Sans','font.size':10,'axes.titlesize':11,'axes.spines.top':False,'axes.spines.right':False})
     fig,axes=plt.subplots(2,2,figsize=(13,9),layout='constrained')
     for method in methods:
@@ -76,6 +83,22 @@ def main():
         table_rows.append([CN[m],f"{s['utility']['mean']:.4f}",f"{s['distance']['mean']:.6f}",f'{br:.1%}' if br is not None else '无支持',s['utility']['n_sources']])
     comparison_rows=[[CN[m],f"{c['utility']['difference']:+.4f}",str([round(v,4) for v in c['utility']['ci95']])] for m,c in comparisons.items()]
     physical=read(root/'collection_complete.json') if (root/'collection_complete.json').exists() else dict(native_simulations=0,mpc_solves=0,branches=data['counts']['branches'])
+    diagnostics=read(root/'response_diagnostics.json') if (root/'response_diagnostics.json').exists() else {}
+    component_rows=[]
+    for group,values in diagnostics.get('response_summary',{}).get('confirm',{}).items():component_rows.append([group,f"{values['mae']:.6f}",f"{values['zero_mae']:.6f}"])
+    support=diagnostics.get('calibration_support',{})
+    recovery_rows=[]
+    for hour in [1,3,5]:
+        own=[r for r in diagnostics.get('recovery_rows',[]) if r['role']=='confirm' and r['hour']==hour]
+        if not own:continue
+        firstseed=min(r['seed'] for r in own);count=[r for r in own if r['seed']==firstseed]
+        values=[]
+        for metric in ['recall','precision','fpr','brier','ece']:
+            by=defaultdict(list)
+            for r in own:
+                if r[metric] is not None:by[r['source_id']].append(r[metric])
+            values.append(f"{np.mean([np.mean(v) for v in by.values()]):.4f}" if by else '无支持')
+        recovery_rows.append([f'+{hour}h',sum(r['positive'] for r in count),sum(r['negative'] for r in count),*values])
     delta=comparisons['myopic']['utility'];improved=delta['ci95'][0]>0 and not pilot
     text=f'''# 后果模型辅助的序贯信息采集
 
@@ -97,7 +120,15 @@ def main():
 
 效用由固定候选池画像覆盖改善和已核验相邻恢复边界定位组成；存在边界时两项等权，无边界时只评价覆盖改善。初始共同3条分支不计新增查询；每条已选择分支只揭示一次答案。未知查询消耗预算，未知后果不构造假安全/假风险标签。训练奖励可由训练银行内部真值计算，策略输入只能读取已查真值和冻结模型预测。confirm上不更新任何参数。
 
-固定池距离对全部非初始候选平均，已经查询的有效候选距离为0。统计先聚合同source的时间点/偏好及种子，再对source配对bootstrap2000次；没有恢复边界的情境不进入边界率分母。开发缓存的24预算已耗尽24个候选，该点是穷尽结果，不解释为策略优势。
+固定池距离对全部非初始候选平均，已经查询的有效候选距离为0。统计先聚合同source的时间点/偏好及种子，再对source配对bootstrap2000次；没有恢复边界的情境不进入边界率分母。{'开发缓存的24预算已耗尽24个候选，该点是穷尽结果。' if pilot and 'pilot' in scope else '扩展银行每情境29个非初始候选，24预算仍未穷尽候选池。'}
+
+## 后果模型与冻结支持检查
+
+{table(['连续后果组','Confirm模型MAE','零变化MAE'],component_rows) if component_rows else '当前无完整confirm分项误差；未使用其他角色替代。'}
+
+{table(['恢复失败时点','已知正例','已知负例','召回','精确率','误报率','Brier','ECE'],recovery_rows) if recovery_rows else ''}
+
+Cal支持情况：`{support}`。逐时恢复分类的已知正负数、召回、精确率、误报率、Brier和ECE全部保存在response_diagnostics.json；cal与confirm均未用于更新或选择模型。该检查用于区分后果学习与查询规划的能力差异。
 
 ## 数据与执行事实
 

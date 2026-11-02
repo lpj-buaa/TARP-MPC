@@ -33,10 +33,10 @@ class AcquisitionEnv:
         boundary=self.boundary_recall()
         return float((cover+boundary)/2 if boundary is not None else cover)
 
-    def step(self,index):
+    def step(self,index,score=True):
         if self.done or index in self.seen or index<0 or index>=len(self._d):raise ValueError('Unavailable query or exhausted budget')
-        before=self.utility();self.seen.append(index);self.queries.append(index);self.remaining_budget-=1
-        return self.utility()-before
+        before=self.utility() if score else 0.;self.seen.append(index);self.queries.append(index);self.remaining_budget-=1
+        return self.utility()-before if score else 0.
 
     def observations(self):
         # This is the only response accessor used by the policy feature builder.

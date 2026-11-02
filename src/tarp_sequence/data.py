@@ -9,6 +9,17 @@ TUNE_ROLES={'tune','meta_tune'}
 GROUPS={'bounds':(0,24),'reserve_effort':(24,36),'gap':(36,39),'followup':(39,48),'preference':(48,60)}
 
 
+def fit_public_scaler(raw,roles):
+    train=np.array([r in TRAIN_ROLES for r in roles]);raw=np.asarray(raw)
+    return raw[train].mean(0),np.maximum(raw[train].std(0),.01)
+
+
+def primary_evaluation_rows(rows,development=False):
+    confirm=[r for r in rows if r['role']=='confirm']
+    if confirm:return confirm,'confirm'
+    return (rows,'engineering_resubstitution') if development else ([], 'confirm_unsupported')
+
+
 def targets(record,reference,measure,refmeasure,ranges):
     y=np.zeros(60);mask=np.zeros(60,bool);gaps=np.zeros(3);known=np.zeros(3,bool);width=np.zeros((3,4))
     physical=len(record['rows'])==6 and all(r.get('physical_valid') for r in record['rows'])
@@ -61,7 +72,7 @@ def pack(root):
                     action=np.array([i['power'] for i in items])/scale,ids=[i['id'] for i in items])
         case['boundary_pairs']=boundary_pairs(items,case['valid'],case['recoverable']);cases.append(case)
     train=np.array([c['role'] in TRAIN_ROLES for c in cases]);raw=np.array(raw)
-    mean=raw[train].mean(0);std=np.maximum(raw[train].std(0),.01)
+    mean,std=fit_public_scaler(raw,[c['role'] for c in cases])
     weights=np.r_[np.full(49,7.),np.concatenate([np.full(n,np.sqrt(n)) for n in SPATIAL_GROUPS])]
     for case,x in zip(cases,raw):case['state']=(x-mean)/std/weights
     def serial(c):return {k:v.tolist() if isinstance(v,np.ndarray) else v for k,v in c.items()}

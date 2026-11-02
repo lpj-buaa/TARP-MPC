@@ -114,3 +114,75 @@ def test_local_baseline_preserves_resource_threshold_instead_of_linear_binary_la
            recoverable=np.array([[True]*3,[False]*3,[True]*3]),recovery_mask=np.ones((3,3),bool),boundary_pairs=[])
     prediction=local_predictions(c,AcquisitionEnv(c,1),np.zeros((3,63)))
     np.testing.assert_allclose(prediction[2,60:63],0.)
+
+
+def test_greedy_uses_same_terminal_objective_with_perfect_predictions():
+    from tarp_sequence.baselines import marginal_scores
+    from tarp_sequence.response import predicted_descriptor
+    from tarp_sequence.environment import AcquisitionEnv
+    pred=np.zeros((5,63));pred[:,24:36]=np.arange(5)[:,None]*.4
+    pred[:,36:39]=.95*np.maximum(pred[:,24:36].reshape(5,3,4)-1,0).sum(2)/6.4
+    pred[:,60:63]=(pred[:,36:39]>0)
+    items=[dict(family='reference' if i==0 else 'release',dose=i/4) for i in range(5)]
+    from tarp_sequence.data import boundary_pairs
+    valid=np.ones(5,bool);recovery=pred[:,60:63]<.5
+    c=dict(key='s',ids=list('abcde'),state=np.zeros(823),action=np.arange(5)[:,None]*np.ones((5,51)),
+           families=[r['family'] for r in items],doses=[r['dose'] for r in items],initial=[0,4],response=pred[:,:60],
+           response_mask=np.ones((5,60),bool),descriptor=predicted_descriptor(pred),valid=valid,recoverable=recovery,
+           recovery_mask=np.ones((5,3),bool),boundary_pairs=boundary_pairs(items,valid,recovery))
+    e=AcquisitionEnv(c,2);scores=marginal_scores(c,e,pred);expected=[]
+    for i in [1,2,3]:
+        t=AcquisitionEnv(c,2);expected.append(t.step(i))
+    np.testing.assert_allclose(scores[[1,2,3]],expected,atol=1e-10)
+
+
+def test_scaler_uses_training_roles_only():
+    from tarp_sequence.data import fit_public_scaler
+    x=np.array([[0.,1.],[2.,3.],[1e6,1e6]])
+    mean,scale=fit_public_scaler(x,['train','meta_train','confirm'])
+    np.testing.assert_allclose(mean,[1,2]);np.testing.assert_allclose(scale,[1,1])
+
+
+def test_historical_snapshot_provenance_mismatch_is_rejected():
+    import importlib.util
+    from pathlib import Path
+    path=Path('scripts/verify_sequence_v4.py');spec=importlib.util.spec_from_file_location('sequence_verify',path)
+    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+    with pytest.raises(ValueError,match='snapshot'):
+        module.validate_reuse_provenance(dict(code={'physical.py':'a'},source_inputs={'state.pkl':'before'}),
+                                         dict(code={'physical.py':'a'},inputs={'state.pkl':'after'}))
+
+
+def test_formal_report_does_not_replace_missing_confirm_with_calibration(tmp_path):
+    import subprocess,sys,json
+    from pathlib import Path
+    python=Path('D:/anaconda/python.exe')
+    if not python.exists():pytest.skip('report runtime not installed')
+    (tmp_path/'dataset.json').write_text(json.dumps(dict(scope='formal expanded bank',cases=[],counts={'branches':32})))
+    methods=['ppo','myopic','group','random','sobol','local','bracket_random','greedy']
+    rows=[dict(role='cal',source_id='cal1',key='cal1',method=m,seed=42,budget=b,utility=.9,distance=.1,boundary_recall=.8,unknown_queries=0) for m in methods for b in [8,16,24]]
+    (tmp_path/'evaluation.json').write_text(json.dumps(dict(rows=rows)))
+    (tmp_path/'learning_protocol.json').write_text(json.dumps(dict(mode='formal')))
+    result=subprocess.run([str(python),'scripts/report_sequence_v4.py','--root',str(tmp_path)],capture_output=True,text=True)
+    assert result.returncode==0,result.stderr
+    report=json.loads((tmp_path/'analysis.json').read_text('utf-8'))
+    assert report['primary_role']=='confirm_unsupported' and not report['supported']
+
+
+def test_recovery_diagnostics_exclude_unknown_labels():
+    import importlib.util
+    from pathlib import Path
+    path=Path('scripts/diagnose_sequence_v4.py');spec=importlib.util.spec_from_file_location('sequence_diagnostics',path)
+    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+    result=module.binary_summary(np.array([True,False]),np.array([.9,.8]),np.array([True,False]))
+    assert result['positive']==1 and result['negative']==0 and result['fp']==0
+    assert result['recall']==1 and result['fpr'] is None
+
+
+def test_reuse_provenance_accepts_equivalent_relative_paths():
+    import importlib.util
+    from pathlib import Path
+    spec=importlib.util.spec_from_file_location('sequence_verify_paths',Path('scripts/verify_sequence_v4.py'))
+    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+    module.validate_reuse_provenance(dict(code={},source_inputs={'state.pkl':'same'}),
+                                     dict(code={},inputs={str(Path('state.pkl').resolve()):'same'}))
