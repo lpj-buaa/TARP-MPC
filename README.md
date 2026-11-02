@@ -1,33 +1,44 @@
-# 37nodes统一闭环与全流程重训
+# 干预后的资源与调度空间：信息采集隔离实验
 
-主项目：`D:\博士资料包\科研\科研\AAAI_RL\tarp_37_unified`。37nodes用于方法主实验，南京用于规模与交通/V2G验证。此项目独立于原R3、专家库和RL，所有旧资产只读。
+本项目位于 `D:\博士资料包\科研\科研\AAAI_RL\tarp_37_information_acquisition`，分支 `codex/intervention-information`，从 V5 `54f4408` 建立独立工作树。原有物理模块、容量、阈值、RL与专家不改。本轮只运行信息采集学习；不训练风险预警器或专家融合。
 
-先阅读 [完整重训与执行方案](docs/RETRAINING_EXECUTION_CN.md)。当前物理版本为 `native37_pq_ac_0p9ka_economics_v3`。有效最终小规模核验使用 `unified37_smoke_s42_v4`；较早v1–v3保留为诊断，不能混入此版本训练数据。
+先读 [中文结果与图表](docs/information_acquisition_2026-11-02/index.html)，[设计规格](docs/superpowers/specs/2026-11-02-intervention-information-design.md) 与 [实施核验计划](docs/superpowers/plans/2026-11-02-intervention-information.md)。
 
-## 最短执行路径
+## 已完成结果复用
 
 ```powershell
-Set-Location -LiteralPath 'D:\博士资料包\科研\科研\AAAI_RL\tarp_37_unified'
+Set-Location -LiteralPath 'D:\博士资料包\科研\科研\AAAI_RL\tarp_37_information_acquisition'
+powershell -NoProfile -ExecutionPolicy Bypass `
+  -File .\scripts\run_information.ps1 `
+  -Mode pilot -RunId information_pilot_v2 -Resume
 
-# 小规模闭环；已有结果只校验复用。
-powershell -ExecutionPolicy Bypass -File .\scripts\run_unified37.ps1 `
-  -Mode smoke -RunId unified37_smoke_s42_v4 -Workers 1 -Resume
-
-# 六个独立日期分别承担六种数据角色，检查学习全流程。
-powershell -ExecutionPolicy Bypass -File .\scripts\run_unified37.ps1 `
-  -Mode pilot -RunId unified37_pilot_s42_v1 -Workers 4 -Resume
-if ($LASTEXITCODE -ne 0) { throw 'Pilot collection failed' }
-
-powershell -ExecutionPolicy Bypass -File .\scripts\run_retraining.ps1 `
-  -Mode pilot -DataRunId unified37_pilot_s42_v1 `
-  -RunId unified37_train_pilot_s42_v1 -Task all -Device cuda -Queries 12 -Resume
-if ($LASTEXITCODE -ne 0) { throw 'Pilot training failed' }
+# 只重绘结果，不训练、不采集
+& 'D:\anaconda\python.exe' -B .\scripts\analyze_information.py `
+  --run-id information_pilot_v2
 ```
 
-物理报告：`artifacts\runs\<DataRunId>\analysis\index.html`。学习结果：`artifacts\retraining\<RunId>\evaluate\metrics.json`、`coverage.json`、`comparison_ci.json`。
+v2为修正Sobol公共坐标与独立情境序列后的四臂完整对照。共同初始192条、历史候选384条；每臂每seed揭示128条答案，seed42/43/44。该实验属于有限历史缓存上的采集比较。两种学习臂使用相同TD3式双critic，actor不用于本轮动作提出。保留v1作核查，不混选运行结果。
 
-## 组件
+## 独立小验证的复现实验命令
 
-`contract/network/mpc/traffic/environment`统一物理能力与实际交付；`risks/collection`生成版本化配对数据；`packing/model/learning`训练图与时序编码、GRU演化及专家；`acquisition/query`训练新的一次干预采样器并调用真实六小时MPC分支；`report`只读取已发布记录。
+以下会运行新的8条物理分支；已有 `v5_information_sanity_v1` 无需再次执行。请为确需的新实验使用新RunId。
 
-没有自动启动正式重训。旧运行策略不继续训练；新RL用于信息采样，日常接续由MPC完成。当前专家融合是有独立meta数据的浅树证据融合基线，旧通信模型保留在原项目，尚未移植到新标签上。
+```powershell
+$infoProject = 'D:\博士资料包\科研\科研\AAAI_RL\tarp_37_information_acquisition'
+$infoSource = 'D:\博士资料包\科研\科研\AAAI_RL\tarp_37_risk_audit'
+$infoPhysicalPython = 'D:\博士资料包\科研\科研\AAAI_RL\tarp_risk_discovery\.venv\Scripts\python.exe'
+Set-Location -LiteralPath $infoProject
+$env:PYTHONPATH = Join-Path $infoProject 'src'
+& $infoPhysicalPython -B -u -m tarp_info.native `
+  --source $infoSource --run-id v5_information_sanity_repeat_v1 --workers 4
+
+# 只读重算已存在分支的后续MPC支持区间，不重复交通推演
+& $infoPhysicalPython -B -u .\scripts\opportunity_probe.py `
+  --native-run v5_information_sanity_v1
+
+# 本轮12项新接口/机制测试及5项既有风险、MPC测试
+& $infoPhysicalPython -B -m pytest `
+  .\tests\test_info_acquisition.py .\tests\test_risks.py .\tests\test_mpc.py -q
+```
+
+`src/tarp_info`负责画像、Oracle、采集、版本绑定与真实接续扩展；`scripts/opportunity_probe.py`只读复用原MPC构造器测量方向支持区间。`src/tarp37`继承V5且保持不变。结果分别位于 `artifacts/information/information_pilot_v2` 和 `artifacts/native_information/v5_information_sanity_v1`，二者物理版本及证据用途分别记录。

@@ -82,3 +82,55 @@ def test_q_retry_uses_finite_initializations_and_keeps_failure_unknown():
     assert calls==['flat','pf']
     def failed(init):raise RuntimeError('still numerical')
     with pytest.raises(RuntimeError,match='still numerical'):retry_q(failed)
+
+
+def test_sobol_is_per_context_and_within_public_action_domain():
+    from tarp_info.acquire import sobol_targets
+    public=[dict(key=k,action=([v]*37+[v]*10+[v]*4)) for k in ['x','y'] for v in [0.,1.]]
+    targets=sobol_targets(public,8,42)
+    assert targets['x'].shape==(4,51)
+    assert targets['y'].shape==(4,51)
+    for points in targets.values():
+        assert np.all(points>=0) and np.all(points<=1)
+        assert points[:,0].min()<.5 and points[:,0].max()>.5
+    assert not np.array_equal(targets['x'],targets['y'])
+
+
+def test_protocol_hashes_real_legacy_learner_dependency():
+    from tarp_info.cli import code_dependencies
+    assert any(p.endswith('tarp37/acquisition.py') for p in code_dependencies())
+
+
+def test_mpc_projection_keeps_original_lp_class_and_checks_layout():
+    from pathlib import Path
+    import json
+    import tarp37.mpc as original
+    from tarp37.network import UnifiedNetwork
+    import importlib.util
+    spec=importlib.util.spec_from_file_location('opportunity_probe',Path(__file__).resolve().parents[1]/'scripts/opportunity_probe.py')
+    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+    project_options=module.project_options
+    files=list((Path(__file__).resolve().parents[1]/'artifacts/native_information/v5_information_sanity_v1').glob('*/record.json'))
+    if not files:pytest.skip('Native sanity context required for physical projection test')
+    context=json.loads(files[0].read_text(encoding='utf-8'))['visible_views'][1]
+    before=original.LP
+    result=project_options(UnifiedNetwork(),context,.05)
+    assert result['known'] and result['layout_verified']
+    assert original.LP is before
+    for bounds in result['bounds_mw'].values():assert bounds[1]>=bounds[0]-1e-6
+
+
+def test_mpc_projection_never_reports_a_numerically_missing_endpoint_as_known():
+    from pathlib import Path
+    import json,importlib.util
+    from types import SimpleNamespace
+    from tarp37.network import UnifiedNetwork
+    spec=importlib.util.spec_from_file_location('opportunity_probe',Path(__file__).resolve().parents[1]/'scripts/opportunity_probe.py')
+    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+    files=list((Path(__file__).resolve().parents[1]/'artifacts/native_information/v5_information_sanity_v1').glob('*/record.json'))
+    if not files:pytest.skip('Native sanity context required')
+    context=json.loads(files[0].read_text(encoding='utf-8'))['visible_views'][1]
+    failed=lambda lp:SimpleNamespace(success=False,status=4,message='injected numerical failure')
+    result=module.project_options(UnifiedNetwork(),context,.05,projection_solver=failed)
+    assert not result['known'] and 'endpoint' in result['reason']
+    assert result['endpoint_attempts'][0]['status']==4

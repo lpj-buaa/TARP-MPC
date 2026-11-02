@@ -8,6 +8,12 @@ from .acquire import run_arm
 def digest(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
 
 
+def code_dependencies():
+    folder=Path(__file__).resolve().parent
+    files=[*folder.glob('*.py'),*(folder.parent/'tarp37').glob('*.py')]
+    return {str(f).replace('\\','/'):digest(f) for f in files}
+
+
 def evaluate(bundle,result):
     # Only the post-query evaluator receives all hidden answers.
     public={p['id']:p for p in bundle['public']};answers=bundle['answers'];keys=sorted(set(p['key'] for p in bundle['public']))
@@ -43,9 +49,13 @@ def main():
         bundle=prepare(a.source,root,root/'utility.json')
         print(json.dumps(bundle['manifest'],indent=2));return
     bundle=load_json(root/'cache.json')
-    code={str(f):digest(f) for f in Path(__file__).parent.glob('*.py')}
+    code=code_dependencies()
+    utility_inputs=load_json(root/'utility.json')['frozen_inputs']
+    for f,h in utility_inputs.items():
+        if digest(f)!=h:raise ValueError('Frozen V4 inference dependency changed: '+f)
     protocol=dict(cache_hash=digest(root/'cache.json'),code=code,budget=a.budget,seeds=a.seeds,
-        fixed_metrics=['mean_distance','radius','coverage_005','coverage_010','coverage_020'],warm=100,updates=10,exploration=.25)
+        fixed_metrics=['mean_distance','radius','coverage_005','coverage_010','coverage_020'],warm=100,updates=10,exploration=.25,
+        frozen_utility_inputs=utility_inputs,sobol='independent sequence per context within the public candidate coordinate bounds')
     path=root/'protocol.json'
     if path.exists() and load_json(path)!=protocol:raise ValueError('Protocol changed; use a new RunId')
     path.write_text(json.dumps(protocol,indent=2),encoding='utf-8')

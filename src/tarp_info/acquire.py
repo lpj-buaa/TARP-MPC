@@ -9,6 +9,17 @@ def novelty(z,key,known,exclude=None):
     return float(np.min(np.linalg.norm(np.asarray(values)-z,axis=1))) if values else 0.
 
 
+def sobol_targets(public,budget,seed):
+    keys=sorted(set(p['key'] for p in public));count=int(np.ceil(budget/len(keys)))
+    result={}
+    for i,key in enumerate(keys):
+        actions=np.asarray([p['action'] for p in public if p['key']==key])
+        low=actions.min(0);high=actions.max(0)
+        points=qmc.Sobol(actions.shape[1],scramble=True,seed=seed+i*1009).random_base2(int(np.ceil(np.log2(max(count,1)))))[:count]
+        result[key]=low+(high-low)*points
+    return result
+
+
 def run_arm(public,initial,oracle,method,budget,seed=42,warm=100,updates=10):
     if method not in ['random','sobol','error_td3','space_td3']:raise ValueError(method)
     if budget>len(public):raise ValueError('Insufficient common candidates')
@@ -34,20 +45,22 @@ def run_arm(public,initial,oracle,method,budget,seed=42,warm=100,updates=10):
     if agent:
         refresh()
         for _ in range(warm):agent.update(32)
-    points=qmc.Sobol(51,scramble=True,seed=seed).random_base2(int(np.ceil(np.log2(max(budget,1)))))*2-1
+    targets=sobol_targets(public,budget,seed) if method=='sobol' else None
+    visits=defaultdict(int)
     queries=[]
     for i in range(budget):
         key=keys[i%len(keys)]
         if not pool[key]:key=next(k for k in keys if pool[k])
         candidates=pool[key]
         if method=='random':j=int(rng.integers(len(candidates)))
-        elif method=='sobol':j=int(np.argmin(np.linalg.norm(np.asarray([c['action'] for c in candidates])-points[i],axis=1)))
+        elif method=='sobol':j=int(np.argmin(np.linalg.norm(np.asarray([c['action'] for c in candidates])-targets[key][visits[key]],axis=1)))
         elif rng.random()<.25:j=int(rng.integers(len(candidates)))
         else:
             sa=torch.tensor([c['state']+c['action'] for c in candidates],dtype=torch.float32)
             with torch.no_grad():scores=torch.minimum(agent.q1(sa),agent.q2(sa)).numpy().ravel()
             j=int(np.argmax(scores))
         selected=candidates.pop(j)
+        visits[key]+=1
         a=oracle.query(selected['id']);z=None if a['profile'] is None else np.asarray(a['profile'])
         insertion=novelty(z,key,known) if z is not None else None
         x=dict(selected,**a);x['profile']=z
