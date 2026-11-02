@@ -19,7 +19,7 @@ def same_context(a,b):return context_difference(a,b)<=1e-10
 
 def verify(root):
     root=Path(root);count=0
-    for name,field in [('collection_complete.json','records'),('measurement_complete.json','outputs'),('acquisition_complete.json','outputs')]:
+    for name,field in [('collection_complete.json','records'),('measurement_complete.json','outputs'),('acquisition_complete.json','outputs'),('parameter_sobol_complete.json','outputs')]:
         marker=root/name
         if not marker.exists():continue
         saved=json.loads(marker.read_text(encoding='utf-8'))
@@ -54,6 +54,16 @@ def final_verify(root):
         if r.get('checkpoint'):assert sha(r['checkpoint'])==r['checkpoint_hash']
         training+=r['acquisition_training_calls'];sets[f.stem]=[q['id'] for q in r['queries']]
     assert len(sets)==18 and training==9
+    baseline_count=0
+    if (root/'parameter_sobol_complete.json').exists():
+        baseline_protocol=read(root/'parameter_sobol_protocol.json')
+        assert baseline_protocol['code']==sha(project/'scripts/run_parameter_sobol.py')
+        assert baseline_protocol['bundle']==sha(root/'bundle.json')
+        for f in (root/'baselines').glob('parameter_sobol_s*.json'):
+            baseline=read(f);assert baseline['protocol']==baseline_protocol
+            assert len(set(baseline['oracle_calls']))==128 and baseline['acquisition_training_calls']==0
+            baseline_count+=1
+        assert baseline_count==3
     items=read(root/'inventory.json');assert len(items)==162
     contexts={};hardware=[];known_hours=0;max_initial_difference=0.
     for item in items:
@@ -80,11 +90,13 @@ def final_verify(root):
     assert not subprocess.check_output(['git','diff','e604c1b','--name-only','--','src/tarp37','src/tarp_info'],cwd=project,text=True).strip()
     for folder in ['tarp_37_risk_audit','tarp_37_voltage_v5']:
         assert not subprocess.check_output(['git','-C',str(project.parent/folder),'status','--porcelain'],text=True).strip()
-    result=dict(complete=True,initial_rows=18,candidate_rows=144,sources=6,arms=18,query_budget_each=128,
+    result=dict(complete=True,initial_rows=18,candidate_rows=144,sources=6,arms=18+baseline_count,query_budget_each=128,
         new_acquisition_training_calls=training,old_models_training_calls=0,forecaster_training_calls=0,
         native_branches=162,known_physical_hours=known_hours,same_initial_contexts_verified=True,
         maximum_initial_numeric_difference=max_initial_difference,initial_comparison_atol=1e-10,
-        frozen_physics_verified=True,published_output_hashes_verified=True)
+        frozen_physics_verified=True,published_output_hashes_verified=True,
+        analysis_hash=sha(root/'analysis.json'),value_diagnostics_hash=sha(root/'value_diagnostics.json'),
+        report_files={str(f):sha(f) for f in (project/'docs/boundary_acquisition_2026-11-02').glob('*') if f.is_file()})
     (root/'final_verification.json').write_text(json.dumps(result,indent=2),encoding='utf-8');print(json.dumps(result,indent=2))
 
 

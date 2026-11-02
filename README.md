@@ -46,6 +46,8 @@ $env:PYTHONPATH = Join-Path $infoProject 'src'
 
 ## 第二轮：调度范围、转折与恢复边界
 
+最新结果：[中文报告与三组组合图](docs/boundary_acquisition_2026-11-02/index.html)。162分支/972小时，21个等预算采集臂，预警器和旧模型训练0。
+
 代码在独立的src/tarp_boundary，结果在artifacts/boundary_v2/boundary_formal_s42_v2；前一轮tarp_info及原tarp37保持不变。新库为六个同状态情境、两类动作的12个内点剂量，每个情境另有3条公共初始经验。先真实推演、再用同一Oracle池比较四个主方法和两个组件消融，预警器仍不训练。
 
 ```powershell

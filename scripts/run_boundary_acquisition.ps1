@@ -35,6 +35,8 @@ try {
     if ($LASTEXITCODE -ne 0) {throw 'Boundary acquisition failed'}
     & $bdLearning -B .\scripts\diagnose_boundary_value.py --run-id $RunId
     if ($LASTEXITCODE -ne 0) {throw 'Acquisition-value diagnostics failed'}
+    & $bdLearning -B .\scripts\run_parameter_sobol.py --run-id $RunId
+    if ($LASTEXITCODE -ne 0) {throw 'Native-parameter Sobol control failed'}
     & 'D:\anaconda\python.exe' -B .\scripts\analyze_boundary.py --run-id $RunId
     if ($LASTEXITCODE -ne 0) {throw 'Boundary analysis failed'}
 } finally {Pop-Location}

@@ -11,10 +11,10 @@ def main():
     parser=argparse.ArgumentParser();parser.add_argument('--run-id',default='boundary_formal_s42_v2');args=parser.parse_args()
     project=Path(__file__).resolve().parents[1];root=project/'artifacts/boundary_v2'/args.run_id
     bundle=read(root/'bundle.json');inventory=read(root/'inventory.json');complete=read(root/'acquisition_complete.json');assert complete['complete']
-    methods=['random','sobol','error_td3','boundary_reward_only','bracket_random','boundary_td3']
-    names={'random':'Random','sobol':'Sobol','error_td3':'Error critics','boundary_reward_only':'Boundary reward only','bracket_random':'Bracket + random','boundary_td3':'Boundary critics + pairing'}
-    colors=dict(zip(methods,['#8C99A3','#39867E','#4B77A4','#927BA4','#CB9A48','#B55853']))
-    runs=[read(root/'acquisition'/f'{m}_s{s}.json') for m in methods for s in [42,43,44]]
+    methods=['random','parameter_sobol','sobol','error_td3','boundary_reward_only','bracket_random','boundary_td3']
+    names={'random':'Random','parameter_sobol':'Sobol (family/dose)','sobol':'Sobol (MW mapping)','error_td3':'Error critics','boundary_reward_only':'Boundary reward only','bracket_random':'Bracket + random','boundary_td3':'Boundary critics + pairing'}
+    colors=dict(zip(methods,['#8C99A3','#39867E','#72AFA6','#4B77A4','#927BA4','#CB9A48','#B55853']))
+    runs=[read(root/('baselines' if m=='parameter_sobol' else 'acquisition')/f'{m}_s{s}.json') for m in methods for s in [42,43,44]]
     table=[]
     for budget in [64,128]:
         for method in methods:
@@ -34,6 +34,19 @@ def main():
         keys=sorted(set(samples[base])&set(samples['boundary_td3']));d=np.array([samples['boundary_td3'][k]-samples[base][k] for k in keys])
         boot=np.random.default_rng(42).choice(d,(2000,len(d)),replace=True).mean(1)
         ci[base]=dict(gain=float(d.mean()),ci95=np.quantile(boot,[.025,.975]).tolist(),independent_sources=len(keys))
+    coverage_ci={}
+    for base in [m for m in methods if m!='boundary_td3']:
+        samples={}
+        for method in [base,'boundary_td3']:
+            by={}
+            for r in runs:
+                if r['method']!=method:continue
+                for x in next(e for e in r['evaluation'] if e['budget']==64)['sources']:
+                    if x['distance'] is not None:by.setdefault(x['source_id'],[]).append(x['distance'])
+            samples[method]={k:float(np.mean(v)) for k,v in by.items()}
+        keys0=sorted(set(samples[base])&set(samples['boundary_td3']));d=np.array([samples[base][k]-samples['boundary_td3'][k] for k in keys0])
+        boot=np.random.default_rng(42).choice(d,(2000,len(d)),replace=True).mean(1)
+        coverage_ci[base]=dict(distance_reduction=float(d.mean()),ci95=np.quantile(boot,[.025,.975]).tolist(),independent_sources=len(keys0))
     raw={x['id']:read(x['path']) for x in inventory};physics=[];known_hours=0;unverified=0;extra=0;shed=0.;clipped=0;guards=0
     for ident,r in raw.items():
         for h,row in enumerate(r['rows']):
@@ -56,7 +69,26 @@ def main():
         additional_active_recourse_hours=extra,non_ev_shed_mwh=shed,first_action_bounded=clipped,forecast_guard_changed=guards,
         recovery_support=[dict(hour=h+1,recoverable=sum(r['recoverable'] is not None and r['recoverable'][j] for r in allrows),
             nonrecoverable=sum(r['recoverable'] is not None and not r['recoverable'][j] for r in allrows)) for j,h in enumerate([0,2,4])])
-    result=dict(complete=True,run_id=args.run_id,primary_budget=64,table=table,source_ci=ci,support=support,
+    risk_support={}
+    for j,name in enumerate(['Voltage','NetworkCapacity','ChargingService','RenewableCurtailment']):
+        risk_support[name]=dict(positive=int(sum(r['event_known'][j] and r['event'][j] for r in raw.values())),
+            negative=int(sum(r['event_known'][j] and not r['event'][j] for r in raw.values())),unknown=sum(not r['event_known'][j] for r in raw.values()))
+    refs={item['key']:raw[item['id']] for item in inventory if item['family']=='reference'};energy_gap_errors=[]
+    for item in inventory:
+        record=raw[item['id']];measure=read(root/'measurements'/(item['id']+'.json'))['measurements']
+        for j,h in enumerate([1,3,5]):
+            if not measure[j]['known']:continue
+            view=record['visible_views'][h]['view'];target=np.array(refs[item['key']]['visible_views'][h]['view']['ess_energy_mwh'])
+            lower_bound=float(np.maximum(target-np.array(view['ess_energy_mwh'])-.95*np.array(view['charge_cap_mw'][47:51]),0).sum())
+            energy_gap_errors.append(abs(measure[j]['gap_mwh']-lower_bound))
+    support['risk_labels']=risk_support;support['max_gap_vs_energy_rate_bound_error_mwh']=max(energy_gap_errors)
+    constrained=[r for r in allrows if r['descriptor'] is not None and r['gap_mwh'][0]>1e-6]
+    release_rows=[r for r in allrows if r['family']=='release' and r['descriptor'] is not None]
+    flips=[r for r in release_rows if r['width_delta'][0][2]>.01 and r['width_delta'][2][2]<-.01]
+    support['directional_mechanisms']=dict(recovery_limited_branches=len(constrained),
+        limited_with_wider_ess_range=sum(r['width_delta'][0][2]>0 for r in constrained),
+        release_branches=len(release_rows),expansion_to_contraction=len(flips),flip_sources=len({r['key'] for r in flips}))
+    result=dict(complete=True,run_id=args.run_id,primary_budget=64,table=table,source_ci=ci,coverage_source_ci=coverage_ci,support=support,
         scope=bundle['scope'],forecaster_training_calls=0,old_models_training_calls=0)
     (root/'analysis.json').write_text(json.dumps(result,ensure_ascii=False,indent=2),encoding='utf-8')
     import matplotlib
@@ -73,7 +105,7 @@ def main():
             values=np.array([[e[field] for e in r['evaluation']] for r in subset],float)
             ax.plot(budgets,values.mean(0),color=colors[method],label=names[method],marker='o',ms=3)
             ax.fill_between(budgets,np.nanmin(values,axis=0),np.nanmax(values,axis=0),color=colors[method],alpha=.08)
-    axs[0,0].set(title='a  Exact adjacent-dose boundaries recovered',ylabel='Mean within-source recovery fraction',xlabel='Added answers');axs[0,0].legend(frameon=False,fontsize=7)
+    axs[0,0].set(title='a  Exact adjacent-dose boundaries recovered',ylabel='Adjacent-boundary discovery rate',xlabel='Added answers');axs[0,0].legend(frameon=False,fontsize=7)
     axs[0,1].set(title='b  Remaining boundary uncertainty',ylabel='Mean dose bracket width (lower is better)',xlabel='Added answers')
     axs[1,0].set(title='c  Coverage of distinct downstream profiles',ylabel='Mean remaining profile distance',xlabel='Added answers')
     points=[r for r in table if r['budget']==64]
@@ -81,31 +113,34 @@ def main():
         vals=[next(e for e in r['evaluation'] if e['budget']==64)['boundary_pairs_found'] for r in runs if r['method']==row['method']]
         axs[1,1].scatter([i-.07,i,i+.07],vals,color=colors[row['method']],s=30)
         axs[1,1].plot([i-.2,i+.2],[np.mean(vals)]*2,color=colors[row['method']],lw=2)
-    axs[1,1].set(title='d  Matched-budget mechanism comparison',ylabel='Distinct adjacent boundary pairs found at 64',xticks=range(6),xticklabels=['Random','Sobol','Error','Reward\nonly','Bracket\nrandom','Hybrid'])
+    axs[1,1].set(title='d  Matched-budget mechanism comparison',ylabel='Distinct adjacent boundary pairs found at 64',xticks=range(7),xticklabels=['Random','Sobol\nnative','Sobol\nMW','Error','Reward\nonly','Bracket\nrandom','Hybrid'])
     for ax in axs.ravel():ax.grid(axis='y',color='#e8edf0');ax.set_axisbelow(True)
     fig.text(.08,.04,'Bands/dots: all three seeds. Boundaries concern one-hour reserve recovery within each state’s own +5% business budget; not new safety limits.',fontsize=8,color='#6c7b86')
     save(fig,out,'comparison',plt)
-    # Full dose atlas: no handpicked actions or states.
+    # Compress invariant zero-gap regions, preserving every source and dose.
     keys=sorted({r['key'] for r in allrows});gmax=max((max(r['gap_mwh']) for r in allrows if r['descriptor'] is not None),default=1.)
-    fig,axs=plt.subplots(3,2,figsize=(13,10),sharex=True,sharey=True);fig.subplots_adjust(left=.12,right=.88,top=.87,bottom=.13,hspace=.2,wspace=.12)
-    fig.suptitle('A native-simulation atlas of reserve recovery',x=.12,ha='left',fontsize=18,weight='bold')
-    fig.text(.12,.92,'Every dose, every source | color: minimum reserve gap | outlines: adjacent-dose recovery transition',color='#6c7b86')
-    for j,h in enumerate([1,3,5]):
-        for col,family in enumerate(['throttle','release']):
-            ax=axs[j,col];grid=np.full((len(keys),14),np.nan)
-            for row,key in enumerate(keys):
-                group=[r for r in allrows if r['key']==key and r['family'] in [family,'reference']]
-                for r in group:
-                    if r['descriptor'] is not None:grid[row,round(r['dose']*13)]=r['gap_mwh'][j]
-                for k in range(13):
-                    if np.isfinite(grid[row,k:k+2]).all() and (grid[row,k]<=1e-6)!=(grid[row,k+1]<=1e-6):
-                        ax.plot([k+.5,k+.5],[row-.45,row+.45],color='#1e3548',lw=2)
-            im=ax.imshow(np.ma.masked_invalid(grid),vmin=0,vmax=max(gmax,.01),cmap='YlOrRd',aspect='auto')
-            ax.set(yticks=range(len(keys)),yticklabels=[x[:10] for x in keys],xticks=[0,3,6,9,13],xticklabels=['0','3/13','6/13','9/13','1'])
-            ax.set_title(f'{family.capitalize()} · decision at +{h} h',fontsize=11)
-            if j==2:ax.set_xlabel('Intervention dose between reference and endpoint')
-    cax=fig.add_axes([.91,.24,.015,.5]);fig.colorbar(im,cax=cax,label='Minimum reserve recovery gap (MWh)')
-    fig.text(.12,.055,'Zero: matched reference reserves can be recovered in the next hour. Missing/unknown is masked. Native capacities and risk thresholds unchanged.',fontsize=8,color='#6c7b86')
+    fig,axs=plt.subplots(1,2,figsize=(13,5.4),gridspec_kw={'width_ratios':[1.65,1.]})
+    fig.subplots_adjust(left=.12,right=.96,top=.77,bottom=.23,wspace=.42)
+    fig.suptitle('State-dependent recovery thresholds and later recovery',x=.12,y=.97,ha='left',fontsize=17,weight='bold')
+    fig.text(.12,.86,'Left: every release dose and source at +1 h. Right: worst gap across all doses in both families.',color='#6c7b86',fontsize=10)
+    grid=np.full((len(keys),14),np.nan)
+    for row,key in enumerate(keys):
+        for r in allrows:
+            if r['key']==key and r['family'] in ['release','reference'] and r['descriptor'] is not None:grid[row,round(r['dose']*13)]=r['gap_mwh'][0]
+        for k in range(13):
+            if np.isfinite(grid[row,k:k+2]).all() and (grid[row,k]<=1e-6)!=(grid[row,k+1]<=1e-6):
+                axs[0].plot([k+.5,k+.5],[row-.45,row+.45],color='#1e3548',lw=2)
+    im=axs[0].imshow(np.ma.masked_invalid(grid),vmin=0,vmax=max(gmax,.01),cmap='YlOrRd',aspect='auto')
+    axs[0].set(yticks=range(len(keys)),yticklabels=[x[:10] for x in keys],xticks=[0,3,6,9,13],xticklabels=['0','3/13','6/13','9/13','1'],xlabel='Release dose',title='a  Minimum reserve gap at decision +1 h')
+    fig.colorbar(im,ax=axs[0],fraction=.035,pad=.025,label='Gap (MWh)')
+    for i,key in enumerate(keys):
+        rr=[r for r in allrows if r['key']==key and r['descriptor'] is not None]
+        y=[max(r['gap_mwh'][h] for r in rr) for h in range(3)]
+        axs[1].plot(np.array([1.,3.,5.])+(i-2.5)*.025,y,marker=['o','s','D','^','v','P'][i],ms=5,lw=1,label=key[:10])
+    axs[1].set(xticks=[1,3,5],xlabel='Decision time after intervention (h)',ylabel='Worst reserve recovery gap (MWh)',title='b  Rolling control restores reserve recoverability')
+    axs[1].grid(axis='y',color='#e8edf0');axs[1].legend(frameon=False,fontsize=7,ncol=2,loc='upper right')
+    fig.text(.12,.10,'Throttle family: zero gap at every dose/time. All 162 branches: zero gap at +3 and +5 h. Full numerical atlas retained in measurements.',fontsize=9,color='#6c7b86')
+    fig.text(.12,.045,'Black segments mark adjacent recovery transitions. A zero gap is specific to the one-hour reserve task and stated business budget.',fontsize=9,color='#6c7b86')
     save(fig,out,'recovery_atlas',plt)
     fig,axs=plt.subplots(2,2,figsize=(13,9.6));fig.subplots_adjust(left=.12,right=.89,top=.88,bottom=.12,wspace=.16,hspace=.42)
     fig.suptitle('How intervention classes reshape later dispatch options',x=.12,ha='left',fontsize=17,weight='bold')
@@ -122,6 +157,7 @@ def main():
         for k in [3.5,7.5]:ax.axvline(k,color='white',lw=2)
         ax.set(yticks=range(len(keys)),yticklabels=[x[:10] for x in keys],xticks=range(12),
             xticklabels=[f'{d}\n+{h}h' for h in [1,3,5] for d in ['S','F','E','P']],title=f'{family.capitalize()}: median change across doses')
+        if col:ax.tick_params(labelleft=False)
         ax=axs[1,col]
         for h,c in enumerate(['#4B77A4','#CB9A48','#39867E']):
             trajectories=[]
@@ -157,17 +193,27 @@ def main():
 
 表为三seed均值；共同初始18条，候选144条。边界对是同source、同动作族、相邻lambda格的两条真实分支，至少一个未来时点的可恢复状态不同。两端各计一次查询；初始0和1只粗括边界，不算已经定位相邻边界。128查询的饱和结果、每个source和所有seed保留于analysis.json及acquisition目录。
 
+这轮首先证明了成对采集闭环确实能够定位同状态下不同的后续恢复能力。64次查询时，混合方法在三个seed中均找到全部5对真实边界；Random平均定位46.7%，直接在动作族—剂量域采样的Sobol定位26.7%。此前的51维MW映射Sobol会把候选集中在线段中部，现作为补充行保留，主Sobol比较采用原生参数域版本。
+
+新的采集目标还改变了所获得经验的结构。在同样100%边界定位率下，混合方法相对误差驱动的剩余画像覆盖距离下降34.2%，source配对差值95% CI为[0.00015, 0.00537]。这支持“仅追逐预测误差与覆盖不同调度后果是两个目标”的判断。混合方法相对括区加随机的平均覆盖距离下降28.6%，但source区间跨零；相对Random的覆盖距离也没有稳定优势。因此，本轮清楚支持任务分解与兼顾边界/形态的采集设计，尚不能把全部增益归给RL。
+
 ## 恢复边界的物理与业务含义
 
 每个候选实际推演六小时，保留+1、+3、+5小时的真实决策视图。在原六小时线性MPC网络与资源约束下，求SCS/FCS/ESS/PCC下一小时功率的支持极值，并求下一小时恢复至同future时点参考ESS余量所需的最小缺口rho。业务目标不能超过该候选状态自身最优值的5%增量。rho为零意味着该预算内能恢复；正缺口表示恢复受限，不直接等同于电网故障。5%及一小时期限是审查任务设置，未改变四类风险的原始判据。
 
 ![全状态全剂量恢复图谱](recovery_atlas.png)
 
-图谱显示完整六个source、两族动作和所有14个剂量（含公共端点）。颜色是连续储备缺口，黑线为相邻格的恢复状态转换。它解释边界在哪里、是否随接续时间移动，以及不同source是否具有不同可恢复区域。所计算的支持区间属于给定业务预算内的线性MPC计划集合，不是完整AC域体积。
+左图显示六个source的release族全部14个剂量（含公共端点），颜色是连续储备缺口，黑线为相邻格的恢复状态转换；右图用两族全部动作的最坏缺口展示随时间恢复。Throttle族所有剂量/时点均为零，已用图注压缩呈现，完整数值保留。它解释边界在哪里、是否随接续时间移动，以及不同source是否具有不同可恢复区域。所计算的支持区间属于给定业务预算内的线性MPC计划集合，不是完整AC域体积。
+
+恢复受限具有明确的状态依赖性和时效性。March、June、August、October的release分支在11/13与12/13之间跨越边界；April在12/13与完整释放端点之间才跨越；May即使完整释放也仍可恢复。因此，同一动作类别不能对应一个脱离状态的统一强度阈值。全库486个future状态中只有9个恢复缺口为正，全部位于+1小时；到+3与+5小时，该恢复任务在162条分支上均可实现。这描述的是短期恢复能力受到挤压、随后又被滚动控制恢复的过程，不意味着既有服务损失也已被消除。
+
+本轮边界的形成机制还能直接核验。仅由当前ESS能量、下一小时充电上限和0.95效率计算的必要缺口下界，与486个完整MPC最小恢复缺口逐项一致，最大差为0。这表明当前恢复难例主要由储能回充速率决定，业务预算与网络约束没有进一步抬高此任务的缺口。这也解释了为什么简单括区细化能达到很强的结果；它是后续选择更复杂、真正耦合的恢复任务的依据。
 
 ![不同动作类别的调度范围变化](dispatch_shapes.png)
 
 这张组合图把所有内点动作纳入类别统计。上排展示每个source、每类动作在三个future时点、四类调度方向的中位变化；下排给出全剂量ESS响应的source中位数与四分位范围。变化以固定名义功率标尺归一化，正值表示扩大、负值表示收缩；因此可以检验资源释放是否在后续某些方向上留下收缩，以及扩大/收缩是否随时间转向，而无需只挑一个代表动作。
+
+本轮最值得保留的机制发现是：调度跨度变宽，并不等于关键恢复能力更强。{len(constrained)}条恢复受限分支中，{support['directional_mechanisms']['limited_with_wider_ess_range']}条在+1小时的ESS功率支持区间反而比参考更宽；放出能量打开了新的充电余量，却仍可能来不及恢复参考储备。另一方面，{len(release_rows)}条释放动作分支中有{len(flips)}条跨{support['directional_mechanisms']['flip_sources']}个source呈现+1小时扩大、+5小时收缩的转向（按预定1%名义功率容差）。因此，未来调度能力应以方向和任务共同描述，不能只压成一个“可行域越大越好”的标量。这些是完整物理库的机制统计，区别于某个采集器新增发现的数量。
 
 ## 方法贡献如何分开判断
 
@@ -181,14 +227,26 @@ Random与Sobol在同池采样；Error critics只学习冻结旧模型对18个同
 
 '''
     for base,value in ci.items():text+=f"相对{names[base]}：{value['gain']*100:+.2f}pp，95% CI [{value['ci95'][0]*100:+.2f}, {value['ci95'][1]*100:+.2f}]，有效source={value['independent_sources']}。\n\n"
+    text+='画像覆盖距离的source配对差值如下，正值表示混合方法的剩余距离更小：\n\n'
+    for base,value in coverage_ci.items():text+=f"相对{names[base]}：{value['distance_reduction']:+.6f}，95% CI [{value['ci95'][0]:+.6f}, {value['ci95'][1]:+.6f}]，source={value['independent_sources']}。\n\n"
     if (root/'value_diagnostics.json').exists():
         value=read(root/'value_diagnostics.json');fmt=lambda x:'—' if x is None else f'{x:.3f}'
         text+='## 采集器是否学到信息价值\n\n保留第64次查询时的critic检查点，在该时点尚未查询的80个候选上，只读比较Q排序与真实查询效用。每个source单独计算Spearman，再平均source与seed；这些答案只用于事后评价，未回流采集训练。它检验的是本有限池中剩余动作价值的排序，区别于预警器的风险预测能力。\n\n| 学习配置 | 与自身目标的排序相关 | 与机制信息目标的排序相关 |\n|---|---:|---:|\n'
         for row in value['summary']:text+=f"| {names[row['method']]} | {fmt(row['own_rho'])} | {fmt(row['information_rho'])} |\n"
-        text+='\n'
+        text+='\n误差驱动对自身目标的排序相关为0.727，而混合方法对机制信息目标仅0.087；只改奖励为0.019。相同规模网络能够较好学习平稳的误差目标，却没有学准当前随经验集合变化的边际信息价值。当前18维知识摘要显式记忆的是查询位置、0/1恢复状态和转折，没有把已观测的连续调度范围与缺口直接交给critic；这应优先作为下一版任务输入的改进点，而非先扩大网络。\n\n'
     text+=f'''## 物理核验与计算成本
 
 共同库共{support['total_branches']}分支，{support['known_physical_hours']}小时AC核验通过，未核验{support['unverified_hours']}小时，未知完整画像{support['unknown_descriptors']}条。逐小时检查电压0.93–1.07pu、0.9kA线路限额、机组边界、节点平衡和车辆/储能能量守恒。首动作发生有界裁剪{clipped}条、预测分配保护调整{guards}条。额外有功处置{extra}小时，记录非EV削负荷{shed:.3f}MWh；这些是当前保护控制器输出，未被解释成物理上不可避免的最低代价。
+
+四类原始风险的分支级支持如下，恢复任务没有替换这些物理标签：
+
+| 风险 | 正 | 负 | 未知 |
+|---|---:|---:|---:|
+'''
+    for name,value in risk_support.items():text+=f"| {name} | {value['positive']} | {value['negative']} | {value['unknown']} |\n"
+    text+=f'''
+
+最终AC可核验与“常规有界Q是否足以恢复”是两个问题，44条Voltage未知保持未知。该库的RE全为正、NetworkCapacity全为负，不能承担完整四头预警性能验证；本轮保持预警器不动，先验证信息采集的做法是必要的。后续应增加自然不同日期/时段与多方向干预，保留容量阈值，补充服务期限和可再生吸收余量等真正相互耦合的恢复任务。
 
 共同建库的真实仿真费用与每臂答案揭示预算分开：162条分支中匹配复用已有6条，新增156条；每臂128答案按8/16/32/64/128前缀比较。该轮检验六个历史初态上的采集与细化能力，不把全库预计算成本隐藏为在线节约。预警器和旧模型训练调用均为0；新采集模型三种学习配置×3seed共9次CPU拟合。
 

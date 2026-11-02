@@ -24,18 +24,18 @@
 - [x] src/tarp_boundary/domain.py私有clone原MPC，支持区间与恢复缺口同一次LP捕获，所有状态保存；GREEN。
 
 ## Task 2 — Native corpus
-- [ ] src/tarp_boundary/corpus.py生成6情境/两族12内点，复用已有6条真实记录并按上下文核验；首18初始再144候选，4CPU workers。
-- [ ] 保存协议、代码/初态hash、future views；每分支独立完成，不因未知重标标签。
-- [ ] 对未来三时点并行读出与冻结教师前向；生成公共候选与私有答案。
+- [x] src/tarp_boundary/corpus.py生成6情境/两族12内点，复用已有6条真实记录并按上下文核验；首18初始再144候选，4CPU workers。
+- [x] 保存协议、代码/初态hash、future views；每分支独立完成，不因未知重标标签。
+- [x] 对未来三时点并行读出与冻结教师前向；生成公共候选与私有答案。
 
 ## Task 3 — Matched learning
-- [ ] src/tarp_boundary/learning.py实现已查询集合上的新颖性/成对边界/转折奖励，复用旧双critic但不改旧代码。
-- [ ] tests验证同情境、两端收费、隐藏答案、无自邻居；四臂3seed，完整预算前缀。
+- [x] src/tarp_boundary/learning.py实现已查询集合上的新颖性/成对边界/转折奖励，复用旧双critic但不改旧代码。
+- [x] tests验证同情境、两端收费、隐藏答案、无自邻居；四臂3seed，完整预算前缀。
 
 ## Task 4 — Evidence and verification
-- [ ] src/tarp_boundary/cli.py及scripts/run_boundary_acquisition.ps1，支持全流程/Resume与独立阶段。
-- [ ] 组合图HTML/source配对统计、原始物理处置核查、全部新测试与17既有测试。
-- [ ] 独立review、冻结文件hash与最终结果中文说明；提交不推送。
+- [x] src/tarp_boundary/cli.py及scripts/run_boundary_acquisition.ps1，支持全流程/Resume与独立阶段。
+- [x] 组合图HTML/source配对统计、原始物理处置核查、全部新测试与17既有测试。
+- [x] 独立review、冻结文件hash与最终结果中文说明；提交不推送。
 
 ## 实施记录
 
@@ -65,3 +65,25 @@ Windows首个stdin驱动无法spawn，未执行新native，旧现场保留。有
 ## 初态等价审计
 
 直接JSON逐位比较报告view/routine_generation差异，经151条记录逐项数值核查，最大仅8.899e-16，来自集合求和顺序导致的浮点舍入。没有车辆、资源、外部预测或物理初态改变。外部审计使用绝对容差1e-10递归比较并保存最大差值，不改仿真输入、物理限值或风险阈值；新增舍入可接受/0.001实质差异必须拒绝的RED→GREEN测试。物理runtime最终30tests通过，ML runtime的64预算检查点测试另1通过。
+
+
+## 最终结果与核验
+
+已完成162原生分支（新增156、复用6）、972小时实际AC有效、486个MPC future读出；18初始/144候选。主六配置×3seed共18臂，加原生family-dose Sobol×3共21臂。所有128查询预算匹配，主64。
+
+补充原生Sobol原因：两条一维动作线的51维MW-box映射偏向中部，旧映射保留作补充；新增2D family-dose Sobol在共同公共参数域公平采样，不重新仿真或拟合。测试确认双族、剂量两端与唯一访问。
+
+64预算新版5/5=100%，Random46.7%、参数Sobol26.7%，Error及BracketRandom也100%。新版剩余画像距离vsError降34.2%，source配对差CI[0.0001499,0.0053675]；vsRandom无显著优势。没有宣称RL独立贡献已确立。
+
+物理规律：9个正恢复缺口均在+1小时，+3/+5全部可恢复；全部486状态rho与ESS能量/充电速率必要下界一致。8/9恢复受限时ESS支持区间更宽；19/78释放动作跨4source先扩后缩。四类标签另列：Voltage0/118/44、Capacity0/162/0、Service14/148/0、RE162/0/0（正/负/未知）。不把该库当全风险预警验证数据。
+
+value rank：Error自身rho0.727、对机制目标-0.135；新目标only0.019、混合0.087。下一版优先让critic读取已查询的连续调度/恢复证据，并设计更耦合恢复任务；不堆网络或立即重训预警器。
+
+Stage fit已零训练复用18臂，参数Sobol复用3臂。最终31项物理runtime pytest及1项ML检查点pytest通过。原tarp37/tarp_info、旧V4/V5项目、小时数据hash均保持一致。完整中文报告和3组可编辑SVG/PNG见docs/boundary_acquisition_2026-11-02/index.html；数据与seal见artifacts/boundary_v2/boundary_formal_s42_v2。
+
+
+## 最终同行复核
+
+新参数Sobol三个seed查询顺序/计费/评价均复算一致，末轮review无剩余重要问题。报告突出两个可复现方向机制：8/9受限恢复分支却ESS范围更宽，19/78释放动作跨4source先扩后缩；不混同“区间更宽”和“任务更可恢复”。报告表格、CI、标签支持、critic排序均与封存数据一致。
+
+完整执行与命令已在README与HTML给出，保持独立分支/项目，按用户要求不合并到旧项目、不重训预警器。全部采集、测量、后处理进程已结束。

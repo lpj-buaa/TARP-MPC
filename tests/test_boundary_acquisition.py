@@ -122,3 +122,15 @@ def test_same_state_audit_accepts_roundoff_but_rejects_physical_differences():
     module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
     assert module.same_context({'v':[1.,2.]},{'v':[1.+1e-15,2.]})
     assert not module.same_context({'v':[1.,2.]},{'v':[1.001,2.]})
+
+
+def test_parameter_sobol_covers_the_native_dose_domain_and_both_families():
+    from pathlib import Path
+    import importlib.util
+    spec=importlib.util.spec_from_file_location('run_parameter_sobol',Path(__file__).resolve().parents[1]/'scripts/run_parameter_sobol.py')
+    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+    public=[dict(id=f'{f}{j}',key='a',family=f,dose=j/13) for f in ['throttle','release'] for j in range(1,13)]
+    selected=module.sequence(public,16,42)
+    assert len({p['id'] for p in selected})==16
+    assert {p['family'] for p in selected}=={'throttle','release'}
+    assert min(p['dose'] for p in selected)<.2 and max(p['dose'] for p in selected)>.8
