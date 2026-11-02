@@ -30,7 +30,7 @@ def summary(records):
 
 
 def analyze(root):
-    root=Path(root);runs={str(p.relative_to(root/'experiments')):read(p) for p in (root/'experiments').glob('*/*/result.json')}
+    root=Path(root);runs={p.relative_to(root/'experiments').as_posix():read(p) for p in (root/'experiments').glob('*/*/result.json')}
     ranking=defaultdict(list);active=defaultdict(list);errors=defaultdict(list)
     for label,r in runs.items():
         protocol=label.split('/')[0]

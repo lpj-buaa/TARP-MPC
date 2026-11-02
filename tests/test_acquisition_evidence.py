@@ -117,3 +117,20 @@ def test_first_active_decision_independent_of_unqueried_answers():
     a=experiment(public,initial,Oracle(private),'combined',1,42,warm=1,updates=1,checkpoints=[])
     b=experiment(public,initial,Oracle(changed),'combined',1,42,warm=1,updates=1,checkpoints=[])
     assert a['queries'][0]['id']==b['queries'][0]['id']
+
+
+def test_analysis_reads_both_protocol_directories_on_current_platform(tmp_path):
+    from tarp_acq_evidence.analysis import analyze
+    from tarp_boundary.io import write
+    from tarp_acq_evidence.experiment import VARIANTS
+    ranks=[dict(source_id=s,spearman=.3,top3_capture=.8,regret=.1,top3_utility=.2) for s in ['s1','s2']]
+    active=[dict(source_id=s,distance=.01,boundary_recall=.5,boundary_bracket_width=.1,turnover_coverage=.9) for s in ['s1','s2']]
+    for protocol in ['matched','active']:
+        for method in VARIANTS+['local_interpolation']:
+            r=dict(method=method,seed=42,rankings=[dict(budget=64,sources=ranks,derived_sources=ranks,response_errors={'bounds':{'s1':.1,'s2':.1}})],
+                   evaluation=[dict(budget=64,sources=active)])
+            write(tmp_path/'experiments'/protocol/(method+'_s42')/'result.json',r)
+    write(tmp_path/'baselines.json',{m+'_s42':[dict(budget=64,sources=active)] for m in ['random','bracket_random']})
+    result=analyze(tmp_path)
+    assert set(result['ranking']['64/spearman'])==set(VARIANTS+['local_interpolation'])
+    assert set(VARIANTS).issubset(result['active']['64/distance'])
