@@ -113,3 +113,12 @@ def test_reference_left_boundary_has_the_action_family_bracket_width():
     answer=dict(descriptor=[.1],recoverable=[False]*3,turnover=[False]*4)
     result=evaluate(dict(initial=[ref,endpoint],public=public,answers={'x':answer}),dict(budget=1,queries=[dict(public[0],**answer)]))
     assert result[-1]['boundary_bracket_width']==pytest.approx(1/13)
+
+
+def test_same_state_audit_accepts_roundoff_but_rejects_physical_differences():
+    from pathlib import Path
+    import importlib.util
+    spec=importlib.util.spec_from_file_location('verify_boundary',Path(__file__).resolve().parents[1]/'scripts/verify_boundary.py')
+    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+    assert module.same_context({'v':[1.,2.]},{'v':[1.+1e-15,2.]})
+    assert not module.same_context({'v':[1.,2.]},{'v':[1.001,2.]})

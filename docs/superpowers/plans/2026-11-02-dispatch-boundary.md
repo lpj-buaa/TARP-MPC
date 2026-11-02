@@ -55,3 +55,13 @@ Windows首个stdin驱动无法spawn，未执行新native，旧现场保留。有
 核查reader无剩余Critical/Important。修复reference左端括区统计，已RED→GREEN回归；最终29项pytest通过（12新+17既有）。三个学习臂额外通过真实PyTorch维度/检查点/首次查询未来隔离的合成接口测试，这些数据不用于科研图表。外部verify_boundary.py负责Resume前核对旧seal，避免重写seal掩盖变化；不要改正在运行的原生/测量代码。
 
 当前实现与预先规格将先提交，所有正式方法结果尚未用于调参。最终仍需读取analysis.json、核验全部source与副作用、执行Stage fit零训练复用、运行verify_boundary.py --final并更新本计划及中文报告结论。
+
+
+## 采集价值诊断补充（拟合前冻结）
+
+保存budget64时的真实critic权重，事后在当时尚未查询的80个候选上评价Q与真实效用的source内Spearman；不得使用最终128权重冒充64模型，不回流训练。新增checkpoint回归先FAIL（无b64文件）再补保存位置，ML runtime测试单列。当前finish PowerShell进程在脚本更新前启动，因此结束后须手工运行diagnose_boundary_value.py并重建analysis报告，后续Stage fit命令已自动包含诊断。
+
+
+## 初态等价审计
+
+直接JSON逐位比较报告view/routine_generation差异，经151条记录逐项数值核查，最大仅8.899e-16，来自集合求和顺序导致的浮点舍入。没有车辆、资源、外部预测或物理初态改变。外部审计使用绝对容差1e-10递归比较并保存最大差值，不改仿真输入、物理限值或风险阈值；新增舍入可接受/0.001实质差异必须拒绝的RED→GREEN测试。物理runtime最终30tests通过，ML runtime的64预算检查点测试另1通过。

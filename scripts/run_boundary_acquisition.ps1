@@ -33,6 +33,8 @@ try {
     if ($LASTEXITCODE -ne 0) {throw 'Boundary Oracle packing failed'}
     & $bdLearning -B -u -m tarp_boundary.cli fit --run-id $RunId --source $bdSource
     if ($LASTEXITCODE -ne 0) {throw 'Boundary acquisition failed'}
+    & $bdLearning -B .\scripts\diagnose_boundary_value.py --run-id $RunId
+    if ($LASTEXITCODE -ne 0) {throw 'Acquisition-value diagnostics failed'}
     & 'D:\anaconda\python.exe' -B .\scripts\analyze_boundary.py --run-id $RunId
     if ($LASTEXITCODE -ne 0) {throw 'Boundary analysis failed'}
 } finally {Pop-Location}

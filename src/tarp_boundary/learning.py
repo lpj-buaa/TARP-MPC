@@ -51,6 +51,12 @@ def acquire(public,initial,oracle,method,budget=128,seed=42,checkpoint_path=None
         import torch
         from tarp37.acquisition import AcquisitionTD3
         torch.set_num_threads(1);agent=AcquisitionTD3(len(public[0]['state'])+18,'cpu',seed)
+    def save_checkpoint(path):
+        from pathlib import Path
+        Path(path).parent.mkdir(parents=True,exist_ok=True)
+        torch.save(dict(actor=agent.actor.state_dict(),q1=agent.q1.state_dict(),q2=agent.q2.state_dict(),
+            state_dim=len(public[0]['state'])+18,action_dim=51,seed=seed,method=method,knowledge_features=18,
+            scope='terminal contextual acquisition, not an operating controller or risk forecaster'),path)
     def state(x):return x['state']+knowledge_features(x,observed)
     def refresh():
         agent.replay=[]
@@ -80,12 +86,11 @@ def acquire(public,initial,oracle,method,budget=128,seed=42,checkpoint_path=None
         if agent:
             refresh()
             for _ in range(10):agent.update(32)
+            if i+1==64 and checkpoint_path is not None:
+                from pathlib import Path
+                checkpoint=Path(checkpoint_path);save_checkpoint(checkpoint.with_name(checkpoint.stem+'_b64.pt'))
     if agent is not None and checkpoint_path is not None:
-        from pathlib import Path
-        Path(checkpoint_path).parent.mkdir(parents=True,exist_ok=True)
-        torch.save(dict(actor=agent.actor.state_dict(),q1=agent.q1.state_dict(),q2=agent.q2.state_dict(),
-            state_dim=len(public[0]['state'])+18,action_dim=51,seed=seed,method=method,knowledge_features=18,
-            scope='terminal contextual acquisition, not an operating controller or risk forecaster'),checkpoint_path)
+        save_checkpoint(checkpoint_path)
     return dict(method=method,seed=seed,budget=budget,queries=queries,oracle_calls=list(oracle.calls),
         acquisition_training_calls=int(agent is not None),risk_forecaster_training_calls=0,old_models_training_calls=0,
         algorithm='terminal gamma0 twin-critic finite-pool ranking; boundary hybrid alternates observed-bracket refinement by context')

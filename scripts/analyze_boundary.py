@@ -181,6 +181,11 @@ Random与Sobol在同池采样；Error critics只学习冻结旧模型对18个同
 
 '''
     for base,value in ci.items():text+=f"相对{names[base]}：{value['gain']*100:+.2f}pp，95% CI [{value['ci95'][0]*100:+.2f}, {value['ci95'][1]*100:+.2f}]，有效source={value['independent_sources']}。\n\n"
+    if (root/'value_diagnostics.json').exists():
+        value=read(root/'value_diagnostics.json');fmt=lambda x:'—' if x is None else f'{x:.3f}'
+        text+='## 采集器是否学到信息价值\n\n保留第64次查询时的critic检查点，在该时点尚未查询的80个候选上，只读比较Q排序与真实查询效用。每个source单独计算Spearman，再平均source与seed；这些答案只用于事后评价，未回流采集训练。它检验的是本有限池中剩余动作价值的排序，区别于预警器的风险预测能力。\n\n| 学习配置 | 与自身目标的排序相关 | 与机制信息目标的排序相关 |\n|---|---:|---:|\n'
+        for row in value['summary']:text+=f"| {names[row['method']]} | {fmt(row['own_rho'])} | {fmt(row['information_rho'])} |\n"
+        text+='\n'
     text+=f'''## 物理核验与计算成本
 
 共同库共{support['total_branches']}分支，{support['known_physical_hours']}小时AC核验通过，未核验{support['unverified_hours']}小时，未知完整画像{support['unknown_descriptors']}条。逐小时检查电压0.93–1.07pu、0.9kA线路限额、机组边界、节点平衡和车辆/储能能量守恒。首动作发生有界裁剪{clipped}条、预测分配保护调整{guards}条。额外有功处置{extra}小时，记录非EV削负荷{shed:.3f}MWh；这些是当前保护控制器输出，未被解释成物理上不可避免的最低代价。

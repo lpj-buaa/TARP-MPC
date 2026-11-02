@@ -3,6 +3,20 @@ import argparse,json,hashlib
 from pathlib import Path
 
 
+def context_difference(a,b):
+    if isinstance(a,dict):
+        if not isinstance(b,dict) or a.keys()!=b.keys():return float('inf')
+        return max((context_difference(a[k],b[k]) for k in a),default=0.)
+    if isinstance(a,list):
+        if not isinstance(b,list) or len(a)!=len(b):return float('inf')
+        return max((context_difference(x,y) for x,y in zip(a,b)),default=0.)
+    if isinstance(a,(int,float)) and isinstance(b,(int,float)):return abs(a-b)
+    return 0. if a==b else float('inf')
+
+
+def same_context(a,b):return context_difference(a,b)<=1e-10
+
+
 def verify(root):
     root=Path(root);count=0
     for name,field in [('collection_complete.json','records'),('measurement_complete.json','outputs'),('acquisition_complete.json','outputs')]:
@@ -41,12 +55,13 @@ def final_verify(root):
         training+=r['acquisition_training_calls'];sets[f.stem]=[q['id'] for q in r['queries']]
     assert len(sets)==18 and training==9
     items=read(root/'inventory.json');assert len(items)==162
-    contexts={};hardware=[];known_hours=0
+    contexts={};hardware=[];known_hours=0;max_initial_difference=0.
     for item in items:
         r=read(item['path']);ctx={k:v for k,v in r['context'].items() if k!='candidate_mw'}
         if item['key'] in contexts:
             # Inputs are identical before applying the branch intervention.
-            assert ctx==contexts[item['key']],item['id']
+            difference=context_difference(ctx,contexts[item['key']]);max_initial_difference=max(max_initial_difference,difference)
+            assert same_context(ctx,contexts[item['key']]),(item['id'],difference)
         else:contexts[item['key']]=ctx
         hardware.append(r['hardware'])
         for row in r['rows']:
@@ -68,6 +83,7 @@ def final_verify(root):
     result=dict(complete=True,initial_rows=18,candidate_rows=144,sources=6,arms=18,query_budget_each=128,
         new_acquisition_training_calls=training,old_models_training_calls=0,forecaster_training_calls=0,
         native_branches=162,known_physical_hours=known_hours,same_initial_contexts_verified=True,
+        maximum_initial_numeric_difference=max_initial_difference,initial_comparison_atol=1e-10,
         frozen_physics_verified=True,published_output_hashes_verified=True)
     (root/'final_verification.json').write_text(json.dumps(result,indent=2),encoding='utf-8');print(json.dumps(result,indent=2))
 
