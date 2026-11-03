@@ -1,0 +1,14 @@
+{
+  "source_commit": "103c88a38964a42d1ad9f6d8e7cd600628f75a5b",
+  "report": "docs/learning_value_2026-11-03/index.html",
+  "scope": "source-held-out reuse with historical cal sources",
+  "run_id": "lv_reuse_s42_v1",
+  "original_collection": "paused",
+  "local_tests": "164 passed",
+  "new_simulations": 0,
+  "student_fits": 45,
+  "prior_fits": 3,
+  "policy_parameters": 121794,
+  "policy_fits": 3,
+  "network_parameters": 136639
+}
