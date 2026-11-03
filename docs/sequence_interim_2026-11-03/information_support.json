@@ -1,0 +1,662 @@
+{
+  "summary": {
+    "cal": {
+      "contexts": 12,
+      "sources": 3,
+      "discriminating": 12,
+      "boundary_contexts": 6,
+      "boundary_pairs": 6,
+      "median_base_distance": 0.013427825981446692
+    },
+    "development_test": {
+      "contexts": 8,
+      "sources": 2,
+      "discriminating": 8,
+      "boundary_contexts": 4,
+      "boundary_pairs": 4,
+      "median_base_distance": 0.01114109173682713
+    },
+    "meta_train": {
+      "contexts": 20,
+      "sources": 5,
+      "discriminating": 20,
+      "boundary_contexts": 12,
+      "boundary_pairs": 14,
+      "median_base_distance": 0.023654073091898726
+    },
+    "meta_tune": {
+      "contexts": 8,
+      "sources": 2,
+      "discriminating": 8,
+      "boundary_contexts": 5,
+      "boundary_pairs": 5,
+      "median_base_distance": 0.03978611338973707
+    },
+    "train": {
+      "contexts": 20,
+      "sources": 5,
+      "discriminating": 20,
+      "boundary_contexts": 12,
+      "boundary_pairs": 16,
+      "median_base_distance": 0.027528003324077288
+    },
+    "tune": {
+      "contexts": 8,
+      "sources": 2,
+      "discriminating": 8,
+      "boundary_contexts": 4,
+      "boundary_pairs": 4,
+      "median_base_distance": 0.01151309104346913
+    }
+  },
+  "rows": [
+    {
+      "key": "2024-03-04_s101_h32_p0",
+      "source_id": "2024-03-04_s101",
+      "role": "train",
+      "base_distance": 0.00575125050779785,
+      "boundary_pairs": 0,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-03-04_s101_h32_p1",
+      "source_id": "2024-03-04_s101",
+      "role": "train",
+      "base_distance": 0.0071378868641927915,
+      "boundary_pairs": 0,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-03-04_s101_h40_p0",
+      "source_id": "2024-03-04_s101",
+      "role": "train",
+      "base_distance": 0.028769558440614164,
+      "boundary_pairs": 1,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-03-04_s101_h40_p1",
+      "source_id": "2024-03-04_s101",
+      "role": "train",
+      "base_distance": 0.028931497973311654,
+      "boundary_pairs": 1,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-03-18_s109_h32_p0",
+      "source_id": "2024-03-18_s109",
+      "role": "meta_train",
+      "base_distance": 0.005241713583012425,
+      "boundary_pairs": 0,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-03-18_s109_h32_p1",
+      "source_id": "2024-03-18_s109",
+      "role": "meta_train",
+      "base_distance": 0.006524618349587173,
+      "boundary_pairs": 0,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-03-18_s109_h40_p0",
+      "source_id": "2024-03-18_s109",
+      "role": "meta_train",
+      "base_distance": 0.03295141289554744,
+      "boundary_pairs": 2,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-03-18_s109_h40_p1",
+      "source_id": "2024-03-18_s109",
+      "role": "meta_train",
+      "base_distance": 0.03306649742897,
+      "boundary_pairs": 2,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-04-01_s102_h32_p0",
+      "source_id": "2024-04-01_s102",
+      "role": "development_test",
+      "base_distance": 0.005994793168976339,
+      "boundary_pairs": 0,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-04-01_s102_h32_p1",
+      "source_id": "2024-04-01_s102",
+      "role": "development_test",
+      "base_distance": 0.007841504239856047,
+      "boundary_pairs": 0,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-04-01_s102_h40_p0",
+      "source_id": "2024-04-01_s102",
+      "role": "development_test",
+      "base_distance": 0.030837064921977568,
+      "boundary_pairs": 1,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-04-01_s102_h40_p1",
+      "source_id": "2024-04-01_s102",
+      "role": "development_test",
+      "base_distance": 0.039535658490925975,
+      "boundary_pairs": 1,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-04-22_s110_h32_p0",
+      "source_id": "2024-04-22_s110",
+      "role": "meta_train",
+      "base_distance": 0.040586755105988546,
+      "boundary_pairs": 1,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-04-22_s110_h32_p1",
+      "source_id": "2024-04-22_s110",
+      "role": "meta_train",
+      "base_distance": 0.03345593263542939,
+      "boundary_pairs": 1,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-04-22_s110_h40_p0",
+      "source_id": "2024-04-22_s110",
+      "role": "meta_train",
+      "base_distance": 0.10057750494515076,
+      "boundary_pairs": 1,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-04-22_s110_h40_p1",
+      "source_id": "2024-04-22_s110",
+      "role": "meta_train",
+      "base_distance": 0.10401635773171299,
+      "boundary_pairs": 1,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-05-13_s103_h32_p0",
+      "source_id": "2024-05-13_s103",
+      "role": "train",
+      "base_distance": 0.05541252903231359,
+      "boundary_pairs": 2,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-05-13_s103_h32_p1",
+      "source_id": "2024-05-13_s103",
+      "role": "train",
+      "base_distance": 0.05563813272496693,
+      "boundary_pairs": 2,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-05-13_s103_h40_p0",
+      "source_id": "2024-05-13_s103",
+      "role": "train",
+      "base_distance": 0.029716839748091074,
+      "boundary_pairs": 0,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-05-13_s103_h40_p1",
+      "source_id": "2024-05-13_s103",
+      "role": "train",
+      "base_distance": 0.0542563211630336,
+      "boundary_pairs": 0,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-06-10_s104_h32_p0",
+      "source_id": "2024-06-10_s104",
+      "role": "train",
+      "base_distance": 0.02469787127686976,
+      "boundary_pairs": 2,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-06-10_s104_h32_p1",
+      "source_id": "2024-06-10_s104",
+      "role": "train",
+      "base_distance": 0.026286448207540412,
+      "boundary_pairs": 2,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-06-10_s104_h40_p0",
+      "source_id": "2024-06-10_s104",
+      "role": "train",
+      "base_distance": 0.015920035166816764,
+      "boundary_pairs": 1,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-06-10_s104_h40_p1",
+      "source_id": "2024-06-10_s104",
+      "role": "train",
+      "base_distance": 0.016071197556887268,
+      "boundary_pairs": 1,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-06-24_s111_h32_p0",
+      "source_id": "2024-06-24_s111",
+      "role": "meta_train",
+      "base_distance": 0.005672473765823188,
+      "boundary_pairs": 0,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-06-24_s111_h32_p1",
+      "source_id": "2024-06-24_s111",
+      "role": "meta_train",
+      "base_distance": 0.006809549447001732,
+      "boundary_pairs": 0,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-06-24_s111_h40_p0",
+      "source_id": "2024-06-24_s111",
+      "role": "meta_train",
+      "base_distance": 0.013494927300123456,
+      "boundary_pairs": 1,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-06-24_s111_h40_p1",
+      "source_id": "2024-06-24_s111",
+      "role": "meta_train",
+      "base_distance": 0.013604978460322157,
+      "boundary_pairs": 1,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-07-08_s107_h32_p0",
+      "source_id": "2024-07-08_s107",
+      "role": "tune",
+      "base_distance": 0.004849472395448332,
+      "boundary_pairs": 0,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-07-08_s107_h32_p1",
+      "source_id": "2024-07-08_s107",
+      "role": "tune",
+      "base_distance": 0.006565388645674209,
+      "boundary_pairs": 0,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-07-08_s107_h40_p0",
+      "source_id": "2024-07-08_s107",
+      "role": "tune",
+      "base_distance": 0.01646079344126405,
+      "boundary_pairs": 1,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-07-08_s107_h40_p1",
+      "source_id": "2024-07-08_s107",
+      "role": "tune",
+      "base_distance": 0.024592109253110544,
+      "boundary_pairs": 1,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-08-05_s105_h32_p0",
+      "source_id": "2024-08-05_s105",
+      "role": "train",
+      "base_distance": 0.02208280922889093,
+      "boundary_pairs": 0,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-08-05_s105_h32_p1",
+      "source_id": "2024-08-05_s105",
+      "role": "train",
+      "base_distance": 0.047281238459599036,
+      "boundary_pairs": 0,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-08-05_s105_h40_p0",
+      "source_id": "2024-08-05_s105",
+      "role": "train",
+      "base_distance": 0.09714552721187428,
+      "boundary_pairs": 1,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-08-05_s105_h40_p1",
+      "source_id": "2024-08-05_s105",
+      "role": "train",
+      "base_distance": 0.08044191205166364,
+      "boundary_pairs": 1,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-08-19_s112_h32_p0",
+      "source_id": "2024-08-19_s112",
+      "role": "development_test",
+      "base_distance": 0.005766962537215748,
+      "boundary_pairs": 0,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-08-19_s112_h32_p1",
+      "source_id": "2024-08-19_s112",
+      "role": "development_test",
+      "base_distance": 0.006628795762205079,
+      "boundary_pairs": 0,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-08-19_s112_h40_p0",
+      "source_id": "2024-08-19_s112",
+      "role": "development_test",
+      "base_distance": 0.014440679233798213,
+      "boundary_pairs": 1,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-08-19_s112_h40_p1",
+      "source_id": "2024-08-19_s112",
+      "role": "development_test",
+      "base_distance": 0.014485055562200661,
+      "boundary_pairs": 1,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-09-02_s115_h32_p0",
+      "source_id": "2024-09-02_s115",
+      "role": "meta_tune",
+      "base_distance": 0.0040466065128518325,
+      "boundary_pairs": 0,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-09-02_s115_h32_p1",
+      "source_id": "2024-09-02_s115",
+      "role": "meta_tune",
+      "base_distance": 0.015185776047041785,
+      "boundary_pairs": 0,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-09-02_s115_h40_p0",
+      "source_id": "2024-09-02_s115",
+      "role": "meta_tune",
+      "base_distance": 0.022402263199771344,
+      "boundary_pairs": 1,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-09-02_s115_h40_p1",
+      "source_id": "2024-09-02_s115",
+      "role": "meta_tune",
+      "base_distance": 0.015592088318084596,
+      "boundary_pairs": 1,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-09-16_s113_h32_p0",
+      "source_id": "2024-09-16_s113",
+      "role": "meta_train",
+      "base_distance": 0.014659876090293147,
+      "boundary_pairs": 0,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-09-16_s113_h32_p1",
+      "source_id": "2024-09-16_s113",
+      "role": "meta_train",
+      "base_distance": 0.016167968562232005,
+      "boundary_pairs": 0,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-09-16_s113_h40_p0",
+      "source_id": "2024-09-16_s113",
+      "role": "meta_train",
+      "base_distance": 0.031140177621565446,
+      "boundary_pairs": 1,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-09-16_s113_h40_p1",
+      "source_id": "2024-09-16_s113",
+      "role": "meta_train",
+      "base_distance": 0.08368230444111466,
+      "boundary_pairs": 1,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-10-07_s106_h32_p0",
+      "source_id": "2024-10-07_s106",
+      "role": "train",
+      "base_distance": 0.008074359744842814,
+      "boundary_pairs": 0,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-10-07_s106_h32_p1",
+      "source_id": "2024-10-07_s106",
+      "role": "train",
+      "base_distance": 0.007677220587459421,
+      "boundary_pairs": 0,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-10-07_s106_h40_p0",
+      "source_id": "2024-10-07_s106",
+      "role": "train",
+      "base_distance": 0.03616156013014281,
+      "boundary_pairs": 1,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-10-07_s106_h40_p1",
+      "source_id": "2024-10-07_s106",
+      "role": "train",
+      "base_distance": 0.021694460985880043,
+      "boundary_pairs": 1,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-10-21_s114_h32_p0",
+      "source_id": "2024-10-21_s114",
+      "role": "meta_train",
+      "base_distance": 0.014433218856085447,
+      "boundary_pairs": 0,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-10-21_s114_h32_p1",
+      "source_id": "2024-10-21_s114",
+      "role": "meta_train",
+      "base_distance": 0.01586003898089371,
+      "boundary_pairs": 0,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-10-21_s114_h40_p0",
+      "source_id": "2024-10-21_s114",
+      "role": "meta_train",
+      "base_distance": 0.04311352753653201,
+      "boundary_pairs": 1,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-10-21_s114_h40_p1",
+      "source_id": "2024-10-21_s114",
+      "role": "meta_train",
+      "base_distance": 0.04320819485941068,
+      "boundary_pairs": 1,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-11-04_s108_h32_p0",
+      "source_id": "2024-11-04_s108",
+      "role": "tune",
+      "base_distance": 0.004583992168907426,
+      "boundary_pairs": 0,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-11-04_s108_h32_p1",
+      "source_id": "2024-11-04_s108",
+      "role": "tune",
+      "base_distance": 0.005495677327314688,
+      "boundary_pairs": 0,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-11-04_s108_h40_p0",
+      "source_id": "2024-11-04_s108",
+      "role": "tune",
+      "base_distance": 0.041520391170920504,
+      "boundary_pairs": 1,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-11-04_s108_h40_p1",
+      "source_id": "2024-11-04_s108",
+      "role": "tune",
+      "base_distance": 0.041686258516693914,
+      "boundary_pairs": 1,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-11-18_s116_h32_p0",
+      "source_id": "2024-11-18_s116",
+      "role": "meta_tune",
+      "base_distance": 0.06585894704280959,
+      "boundary_pairs": 1,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-11-18_s116_h32_p1",
+      "source_id": "2024-11-18_s116",
+      "role": "meta_tune",
+      "base_distance": 0.05716996357970279,
+      "boundary_pairs": 0,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-11-18_s116_h40_p0",
+      "source_id": "2024-11-18_s116",
+      "role": "meta_tune",
+      "base_distance": 0.07361521403588198,
+      "boundary_pairs": 1,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-11-18_s116_h40_p1",
+      "source_id": "2024-11-18_s116",
+      "role": "meta_tune",
+      "base_distance": 0.07369634314459722,
+      "boundary_pairs": 1,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-12-02_s117_h32_p0",
+      "source_id": "2024-12-02_s117",
+      "role": "cal",
+      "base_distance": 0.04146543458264176,
+      "boundary_pairs": 0,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-12-02_s117_h32_p1",
+      "source_id": "2024-12-02_s117",
+      "role": "cal",
+      "base_distance": 0.05821009918136071,
+      "boundary_pairs": 0,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-12-02_s117_h40_p0",
+      "source_id": "2024-12-02_s117",
+      "role": "cal",
+      "base_distance": 0.012385593193120195,
+      "boundary_pairs": 1,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-12-02_s117_h40_p1",
+      "source_id": "2024-12-02_s117",
+      "role": "cal",
+      "base_distance": 0.012457473520752192,
+      "boundary_pairs": 1,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-12-16_s118_h32_p0",
+      "source_id": "2024-12-16_s118",
+      "role": "cal",
+      "base_distance": 0.024759165485468308,
+      "boundary_pairs": 0,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-12-16_s118_h32_p1",
+      "source_id": "2024-12-16_s118",
+      "role": "cal",
+      "base_distance": 0.007770547182871112,
+      "boundary_pairs": 0,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-12-16_s118_h40_p0",
+      "source_id": "2024-12-16_s118",
+      "role": "cal",
+      "base_distance": 0.013422384405224957,
+      "boundary_pairs": 1,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2024-12-16_s118_h40_p1",
+      "source_id": "2024-12-16_s118",
+      "role": "cal",
+      "base_distance": 0.013433267557668428,
+      "boundary_pairs": 1,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2025-01-06_s119_h32_p0",
+      "source_id": "2025-01-06_s119",
+      "role": "cal",
+      "base_distance": 0.006270860566452375,
+      "boundary_pairs": 0,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2025-01-06_s119_h32_p1",
+      "source_id": "2025-01-06_s119",
+      "role": "cal",
+      "base_distance": 0.006828360258387027,
+      "boundary_pairs": 0,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2025-01-06_s119_h40_p0",
+      "source_id": "2025-01-06_s119",
+      "role": "cal",
+      "base_distance": 0.03503427346096508,
+      "boundary_pairs": 1,
+      "noninitial_known": 29
+    },
+    {
+      "key": "2025-01-06_s119_h40_p1",
+      "source_id": "2025-01-06_s119",
+      "role": "cal",
+      "base_distance": 0.03521909610967441,
+      "boundary_pairs": 1,
+      "noninitial_known": 29
+    }
+  ]
+}

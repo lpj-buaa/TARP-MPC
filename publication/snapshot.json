@@ -4,11 +4,11 @@
   "repository": "https://github.com/lpj-buaa/TARP-MPC",
   "publication_date": "2026-11-03",
   "formal_run": "sequence_formal_s42_v1",
-  "formal_status": "collecting",
+  "formal_status": "paused_by_user",
   "progress_at_snapshot": {
-    "contexts_complete": 64,
+    "contexts_complete": 76,
     "total_contexts": 112,
-    "latest": "2024-11-18_s116_h40_p0"
+    "sealed_branches": 2466
   },
   "formal_target_branches": 3584,
   "old_models_frozen": true,
@@ -18,5 +18,9 @@
     "release export/restore and transport tests",
     "report interpreter defaults to learning environment; explicit ReportPython supported"
   ],
-  "formal_results_available": false
+  "formal_results_available": false,
+  "interim_source_commit": "854e139aab450a14087fb971535c7cdbee216974",
+  "interim_report": "docs/sequence_interim_2026-11-03/findings.md",
+  "interim_original_confirm_used": 0,
+  "interim_tests_passed": 39
 }

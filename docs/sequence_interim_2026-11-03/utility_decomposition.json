@@ -1,0 +1,100 @@
+[
+  {
+    "method": "ppo",
+    "boundary_context": true,
+    "rows": 12,
+    "mean_coverage": 0.7841965315002174,
+    "mean_utility": 0.8920982657501088
+  },
+  {
+    "method": "ppo",
+    "boundary_context": false,
+    "rows": 12,
+    "mean_coverage": 0.8432492462689773,
+    "mean_utility": 0.8432492462689773
+  },
+  {
+    "method": "myopic",
+    "boundary_context": true,
+    "rows": 12,
+    "mean_coverage": 0.7825860498788578,
+    "mean_utility": 0.891293024939429
+  },
+  {
+    "method": "myopic",
+    "boundary_context": false,
+    "rows": 12,
+    "mean_coverage": 0.8432492462689773,
+    "mean_utility": 0.8432492462689773
+  },
+  {
+    "method": "group",
+    "boundary_context": true,
+    "rows": 12,
+    "mean_coverage": 0.7878499768619524,
+    "mean_utility": 0.893924988430976
+  },
+  {
+    "method": "group",
+    "boundary_context": false,
+    "rows": 12,
+    "mean_coverage": 0.8432492462689773,
+    "mean_utility": 0.8432492462689773
+  },
+  {
+    "method": "local",
+    "boundary_context": true,
+    "rows": 12,
+    "mean_coverage": 0.6640460487362155,
+    "mean_utility": 0.8320230243681078
+  },
+  {
+    "method": "local",
+    "boundary_context": false,
+    "rows": 12,
+    "mean_coverage": 0.8500246598474593,
+    "mean_utility": 0.8500246598474593
+  },
+  {
+    "method": "bracket_random",
+    "boundary_context": true,
+    "rows": 12,
+    "mean_coverage": 0.8915012713900845,
+    "mean_utility": 0.9457506356950423
+  },
+  {
+    "method": "bracket_random",
+    "boundary_context": false,
+    "rows": 12,
+    "mean_coverage": 0.8140291116740368,
+    "mean_utility": 0.8140291116740368
+  },
+  {
+    "method": "random",
+    "boundary_context": true,
+    "rows": 12,
+    "mean_coverage": 0.8401043679120956,
+    "mean_utility": 0.6700521839560478
+  },
+  {
+    "method": "random",
+    "boundary_context": false,
+    "rows": 12,
+    "mean_coverage": 0.8140291116740368,
+    "mean_utility": 0.8140291116740368
+  },
+  {
+    "method": "sobol",
+    "boundary_context": true,
+    "rows": 12,
+    "mean_coverage": 0.8441123759689632,
+    "mean_utility": 0.5053895213178149
+  },
+  {
+    "method": "sobol",
+    "boundary_context": false,
+    "rows": 12,
+    "mean_coverage": 0.8312950712018178,
+    "mean_utility": 0.8312950712018178
+  }
+]
