@@ -35,3 +35,16 @@ def test_restore_preserves_existing_different_file(tmp_path):
 def test_restore_rejects_path_escape(tmp_path):
     z,_=archive(tmp_path,'workspace/../escape.txt');m=restore_module()
     with pytest.raises(ValueError,match='Unsafe archive path'):m.restore(z,tmp_path/'workspace',tmp_path/'native')
+
+
+def test_download_reassembles_and_checks_split_archive(tmp_path,monkeypatch):
+    import io
+    spec=importlib.util.spec_from_file_location('download_bundle',Path('scripts/download_release_bundle.py'))
+    m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
+    contents=[b'first half',b'second half'];joined=b''.join(contents)
+    parts=[dict(name='input.zip.part'+str(i),sha256=hashlib.sha256(b).hexdigest()) for i,b in enumerate(contents)]
+    manifest=dict(parts=parts,archive='input.zip',sha256=hashlib.sha256(joined).hexdigest())
+    responses={'parts-manifest.json':json.dumps(manifest).encode(),**{p['name']:b for p,b in zip(parts,contents)}}
+    monkeypatch.setattr(m.urllib.request,'urlopen',lambda url,timeout:io.BytesIO(responses[url.rsplit('/',1)[-1]]))
+    m.download(tmp_path/'download');assert (tmp_path/'download/input.zip').read_bytes()==joined
+    m.download(tmp_path/'download')

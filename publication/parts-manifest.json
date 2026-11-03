@@ -1,0 +1,117 @@
+{
+  "archive": "frozen-inputs-and-completed-evidence-2026-11-03.zip",
+  "sha256": "31affab0330db70167448327442bac0e711bb60a4df40e4eb620295e9238dbe9",
+  "bytes": 727268921,
+  "parts": [
+    {
+      "name": "frozen-inputs-and-completed-evidence-2026-11-03.zip.part001",
+      "bytes": 33554432,
+      "sha256": "ffd5d5e3bcf1d705150d16623fcd97c51d901c51edeed77d405aa47bdf5e9ec6"
+    },
+    {
+      "name": "frozen-inputs-and-completed-evidence-2026-11-03.zip.part002",
+      "bytes": 33554432,
+      "sha256": "8e94a57bb0909ae1090f5f96577fd937ee15553c28f543dd7521f80aba2cc235"
+    },
+    {
+      "name": "frozen-inputs-and-completed-evidence-2026-11-03.zip.part003",
+      "bytes": 33554432,
+      "sha256": "1361d417d52e2761992545e7887d839b2ad681b090e136063c7dc87826fb2318"
+    },
+    {
+      "name": "frozen-inputs-and-completed-evidence-2026-11-03.zip.part004",
+      "bytes": 33554432,
+      "sha256": "ff5b3f15874eb57168c267eb4a7360aaeaf6e90bb0da72bcc3ed258b8740020c"
+    },
+    {
+      "name": "frozen-inputs-and-completed-evidence-2026-11-03.zip.part005",
+      "bytes": 33554432,
+      "sha256": "c7131045bcbfb582bdb0e21d42f5282b87ba773ad7e2b762c0048ed03db036af"
+    },
+    {
+      "name": "frozen-inputs-and-completed-evidence-2026-11-03.zip.part006",
+      "bytes": 33554432,
+      "sha256": "b02f7379cd4eff0f8c9c15e945fd620332395e4af24870309d4140fcf7934bf5"
+    },
+    {
+      "name": "frozen-inputs-and-completed-evidence-2026-11-03.zip.part007",
+      "bytes": 33554432,
+      "sha256": "08967c306f9ff2ed48f898c0834fb7220572f33bfbbb3efa13eabc16afb7b59c"
+    },
+    {
+      "name": "frozen-inputs-and-completed-evidence-2026-11-03.zip.part008",
+      "bytes": 33554432,
+      "sha256": "83918a83b8782af67c93e1322a27e3dbfcc4b92b09de469e29ac2259f23674ac"
+    },
+    {
+      "name": "frozen-inputs-and-completed-evidence-2026-11-03.zip.part009",
+      "bytes": 33554432,
+      "sha256": "b1199a85d2ed956aec72d34ca3acce9a476712447f9e6fbe81d00ffe240101a9"
+    },
+    {
+      "name": "frozen-inputs-and-completed-evidence-2026-11-03.zip.part010",
+      "bytes": 33554432,
+      "sha256": "b512429fb5392111c857e1293b2db9ada45700e8154c8803729bd60068cebfea"
+    },
+    {
+      "name": "frozen-inputs-and-completed-evidence-2026-11-03.zip.part011",
+      "bytes": 33554432,
+      "sha256": "baae2e5bbce759a54b89ad2e1e3bc3014de5678027c2bd821cad1cc420d62f90"
+    },
+    {
+      "name": "frozen-inputs-and-completed-evidence-2026-11-03.zip.part012",
+      "bytes": 33554432,
+      "sha256": "24c6b7eee66cfb62c5e7f2367a93940c5fabb0e81d1d36d541a7b4d6fd43541c"
+    },
+    {
+      "name": "frozen-inputs-and-completed-evidence-2026-11-03.zip.part013",
+      "bytes": 33554432,
+      "sha256": "6baf0fddfc0c9bde41af187deb636bd92b5e4d4c3ab3df2bcc203ba447bbbb68"
+    },
+    {
+      "name": "frozen-inputs-and-completed-evidence-2026-11-03.zip.part014",
+      "bytes": 33554432,
+      "sha256": "be67088d8365761dfccff4b4635e118a6142be1b32bcb63da985bdd85e927013"
+    },
+    {
+      "name": "frozen-inputs-and-completed-evidence-2026-11-03.zip.part015",
+      "bytes": 33554432,
+      "sha256": "f3be4b20b397bb1eb6b70e4b1319f9e80e6354ce030d0467455d662c89e9a9d3"
+    },
+    {
+      "name": "frozen-inputs-and-completed-evidence-2026-11-03.zip.part016",
+      "bytes": 33554432,
+      "sha256": "82baedf5c70ef94788af2cdcc1a03606cfddd44324cc3d7c0a7d4b7ae51d7754"
+    },
+    {
+      "name": "frozen-inputs-and-completed-evidence-2026-11-03.zip.part017",
+      "bytes": 33554432,
+      "sha256": "c9e0fe39597d006a9df87adbb62a28c29d65f43988af6c004573c53e58411000"
+    },
+    {
+      "name": "frozen-inputs-and-completed-evidence-2026-11-03.zip.part018",
+      "bytes": 33554432,
+      "sha256": "5aa8c79520045448c617267f06c15d7491140335b69758309fff274afe32fe04"
+    },
+    {
+      "name": "frozen-inputs-and-completed-evidence-2026-11-03.zip.part019",
+      "bytes": 33554432,
+      "sha256": "90515eed8b8a4f59c8b4f4d480a20f4b876b71fb24e12c28aeebb7c592fa6e13"
+    },
+    {
+      "name": "frozen-inputs-and-completed-evidence-2026-11-03.zip.part020",
+      "bytes": 33554432,
+      "sha256": "b271a6af7ea0a98363f6a6fdaf248583b792b61b12c0887056a1194bd83067e7"
+    },
+    {
+      "name": "frozen-inputs-and-completed-evidence-2026-11-03.zip.part021",
+      "bytes": 33554432,
+      "sha256": "5dc4f07619f07814ea46467586cc73b07d35702ac28b481572dec0adf4d0f732"
+    },
+    {
+      "name": "frozen-inputs-and-completed-evidence-2026-11-03.zip.part022",
+      "bytes": 22625849,
+      "sha256": "9a8c5089f29231c4eb9be7b9177b632d7bf84d8648c7d1383b0da73050dad5f9"
+    }
+  ]
+}

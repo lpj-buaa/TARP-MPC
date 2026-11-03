@@ -10,6 +10,6 @@ jobs:
           python-version: '3.11'
       - run: pip install numpy scipy scikit-learn pytest matplotlib Markdown
       - run: pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cpu
-      - run: python -m pytest tests/test_sequence_v4.py tests/test_acquisition_evidence.py -q
+      - run: python -m pytest tests/test_sequence_v4.py tests/test_acquisition_evidence.py tests/test_release_bundle.py -q
         env:
           PYTHONPATH: src

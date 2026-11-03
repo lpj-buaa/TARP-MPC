@@ -6,7 +6,7 @@
 
 Git仓库包含全部研究源码、配置、脚本、单元测试、设计规格、执行计划和已完成阶段的图文文档。大文件在本仓库的 [Releases](https://github.com/lpj-buaa/TARP-MPC/releases) 中提供，版本为 `research-snapshot-2026-11-03`。
 
-`frozen-inputs-and-completed-evidence-2026-11-03.zip` 包含冻结原生输入、28个source的原始记录和32/40小时快照、原生V2SIM源代码及许可证、交通适配器、5000辆EV案例与需求先验、校准风光荷、旧模型保留件、162条已完成配对分支及MPC测量、历史开发学习结果和checkpoint。`input-manifest.json`逐文件记录位置、字节数与SHA256，`release-summary.json`记录整个归档的SHA256。
+`frozen-inputs-and-completed-evidence-2026-11-03.zip` 包含冻结原生输入、28个source的原始记录和32/40小时快照、原生V2SIM源代码及许可证、交通适配器、5000辆EV案例与需求先验、校准风光荷、旧模型保留件、162条已完成配对分支及MPC测量、历史开发学习结果和checkpoint。该727MB归档分为22段传输。`input-manifest.json`逐文件记录位置、字节数与SHA256，`parts-manifest.json`记录分段校验，`release-summary.json`记录整个归档的SHA256。下载脚本自动核验分段并恢复原ZIP。
 
 当前正式序贯实验 `sequence_formal_s42_v1` 仍在原机采集。本次归档不把正在写入的分支或中间模型当成已完成结果。112情境、3584条分支和后续三种子评价完成后，再单独封存正式结果。现有开发pilot只有一个检查source，不能用作正式独立confirm结论。
 
@@ -20,10 +20,12 @@ New-Item -ItemType Directory -Path $workspace -Force | Out-Null
 git clone https://github.com/lpj-buaa/TARP-MPC.git (Join-Path $workspace 'tarp_37_information_acquisition')
 Set-Location -LiteralPath (Join-Path $workspace 'tarp_37_information_acquisition')
 
-# 从上述Release下载归档到Downloads，先核对SHA256，再恢复；已有同hash文件会跳过，不覆盖不同内容。
-Get-FileHash -Algorithm SHA256 "$env:USERPROFILE\Downloads\frozen-inputs-and-completed-evidence-2026-11-03.zip"
+# 自动下载、逐段核验并合并归档；已通过校验的分段会复用。
+py -3.11 .\scripts\download_release_bundle.py --output "$env:USERPROFILE\Downloads\TARP-MPC"
+Get-FileHash -Algorithm SHA256 "$env:USERPROFILE\Downloads\TARP-MPC\frozen-inputs-and-completed-evidence-2026-11-03.zip"
+# 已有同hash输入会跳过，不覆盖不同内容。
 py -3.11 .\scripts\restore_release_bundle.py `
-  --archive "$env:USERPROFILE\Downloads\frozen-inputs-and-completed-evidence-2026-11-03.zip" `
+  --archive "$env:USERPROFILE\Downloads\TARP-MPC\frozen-inputs-and-completed-evidence-2026-11-03.zip" `
   --workspace $workspace
 
 # 两个环境对应原有物理/学习运行时；不复制虚拟环境本身。
