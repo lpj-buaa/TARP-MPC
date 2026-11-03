@@ -1,0 +1,12 @@
+{
+  "source_commit": "6d75ddcb6deac1cf8ec77090eeb272ed3ca381de",
+  "new_simulations": 0,
+  "source_collection": "paused",
+  "local_tests": "149 passed",
+  "new_response_fits": 3,
+  "run_id": "align_reuse_s42_v1",
+  "scope": "fixed development holdouts; original formal confirm unused",
+  "new_policy_fits": 15,
+  "source_report": "docs/value_alignment_2026-11-03/index.html",
+  "publication_tests": "52 passed, 2 skipped"
+}
