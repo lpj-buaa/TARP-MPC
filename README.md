@@ -7,7 +7,7 @@
 - [新电脑恢复、环境安装与完整命令行](docs/GITHUB_REPRODUCTION_CN.md)
 - [序贯采集V4执行文档](docs/SEQUENCE_V4_EXECUTION.md)
 - [V4模型和MDP设计规格](docs/superpowers/specs/2026-11-02-sequential-acquisition-v4.md)
-- [已有信息价值排序与后果学习结果](docs/acquisition_evidence_2026-11-02/index.html)
+- [已有信息价值排序与后果学习结果](docs/acquisition_evidence_2026-11-02/report.md)
 - [代码和运行版本记录](publication/snapshot.json)
 - [原项目阶段说明](docs/ORIGINAL_PROJECT_README.md)
 

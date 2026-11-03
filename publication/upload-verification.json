@@ -1,0 +1,34 @@
+{
+  "repository": "https://github.com/lpj-buaa/TARP-MPC",
+  "main_sha": "f12fa93e93bafcf361613161a6d545bd16fab5c9",
+  "release": "https://github.com/lpj-buaa/TARP-MPC/releases/tag/research-snapshot-2026-11-03",
+  "release_id": 432224975,
+  "asset_count": 25,
+  "archive_bytes": 727268921,
+  "archive_sha256": "31affab0330db70167448327442bac0e711bb60a4df40e4eb620295e9238dbe9",
+  "remote_part_digests_verified": true,
+  "public_manifest_download_verified": true,
+  "workflow_runs": [
+    {
+      "id": 41569710544,
+      "head_sha": "f12fa93e93bafcf361613161a6d545bd16fab5c9",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/lpj-buaa/TARP-MPC/actions/runs/41569710544"
+    },
+    {
+      "id": 41568834415,
+      "head_sha": "f12fa93e93bafcf361613161a6d545bd16fab5c9",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/lpj-buaa/TARP-MPC/actions/runs/41568834415"
+    },
+    {
+      "id": 41568504494,
+      "head_sha": "84e1d92cf05f83a7f91e0a5d4b6e502a8c8be59c",
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/lpj-buaa/TARP-MPC/actions/runs/41568504494"
+    }
+  ]
+}
