@@ -1,0 +1,7 @@
+numpy==1.26.4
+scipy==1.17.1
+torch==2.8.0
+scikit-learn==1.7.2
+pytest==9.1.1
+matplotlib==3.11.2
+Markdown>=3.8

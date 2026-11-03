@@ -1,0 +1,22 @@
+{
+  "source_commit": "7779f58",
+  "source_branch": "codex/intervention-information",
+  "repository": "https://github.com/lpj-buaa/TARP-MPC",
+  "publication_date": "2026-11-03",
+  "formal_run": "sequence_formal_s42_v1",
+  "formal_status": "collecting",
+  "progress_at_snapshot": {
+    "contexts_complete": 64,
+    "total_contexts": 112,
+    "latest": "2024-11-18_s116_h40_p0"
+  },
+  "formal_target_branches": 3584,
+  "old_models_frozen": true,
+  "publication_changes": [
+    "README and reproduction guide",
+    "dependency records",
+    "release export/restore and transport tests",
+    "report interpreter defaults to learning environment; explicit ReportPython supported"
+  ],
+  "formal_results_available": false
+}

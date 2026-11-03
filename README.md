@@ -1,73 +1,38 @@
-# 干预后的资源与调度空间：信息采集隔离实验
+# TARP-MPC
 
-本项目位于 `D:\博士资料包\科研\科研\AAAI_RL\tarp_37_information_acquisition`，分支 `codex/intervention-information`，从 V5 `54f4408` 建立独立工作树。原有物理模块、容量、阈值、RL与专家不改。本轮只运行信息采集学习；不训练风险预警器或专家融合。
+干预下持续受控的车网耦合系统：学习当前动作如何改变未来可用资源、调度响应与恢复边界，并在有限查询预算下采集有信息价值的行动后果。
 
-先读 [中文结果与图表](docs/information_acquisition_2026-11-02/index.html)，[设计规格](docs/superpowers/specs/2026-11-02-intervention-information-design.md) 与 [实施核验计划](docs/superpowers/plans/2026-11-02-intervention-information.md)。
+本仓库包括完整研究源码、配置、脚本、测试、规格与执行计划。大文件及完成阶段结果位于 [Releases](https://github.com/lpj-buaa/TARP-MPC/releases/tag/research-snapshot-2026-11-03)。
 
-## 已完成结果复用
+- [新电脑恢复、环境安装与完整命令行](docs/GITHUB_REPRODUCTION_CN.md)
+- [序贯采集V4执行文档](docs/SEQUENCE_V4_EXECUTION.md)
+- [V4模型和MDP设计规格](docs/superpowers/specs/2026-11-02-sequential-acquisition-v4.md)
+- [已有信息价值排序与后果学习结果](docs/acquisition_evidence_2026-11-02/index.html)
+- [代码和运行版本记录](publication/snapshot.json)
+- [原项目阶段说明](docs/ORIGINAL_PROJECT_README.md)
 
-```powershell
-Set-Location -LiteralPath 'D:\博士资料包\科研\科研\AAAI_RL\tarp_37_information_acquisition'
-powershell -NoProfile -ExecutionPolicy Bypass `
-  -File .\scripts\run_information.ps1 `
-  -Mode pilot -RunId information_pilot_v2 -Resume
+## 当前实验
 
-# 只重绘结果，不训练、不采集
-& 'D:\anaconda\python.exe' -B .\scripts\analyze_information.py `
-  --run-id information_pilot_v2
+正式实验 sequence_formal_s42_v1：28个source、112情境、3584分支，162条历史分支复用，其余3422条为新原生六小时闭环。MPC、容量、阈值、旧RL及风险预警器冻结。采集结束自动进行三种子学习和独立confirm评价。本次上传时仍在采集，正式效果尚未给出。
+
+稳定后果模型学习未来资源支持区间、恢复工作量、恢复缺口、后续调度和偏好变化；集合策略以已查询的行动与定量后果作为经验状态。比较序贯PPO、即时PPO、组相对序列策略、后果模型即时贪心、局部插值、括区＋Random、参数Sobol和Random，查询预算8/16/24。
+
+开发缓存pilot已跑通并完成Resume核验；其学习策略优于Random，尚未超过强插值/括区对照。开发结果不替代独立confirm。
+
+## 目录
+
+```text
+src/tarp37/           冻结物理环境、有限信息MPC及风险边界
+src/tarp_info/        可见状态、资源后果画像与原生分支
+src/tarp_boundary/    后续调度支持区间与恢复LP
+src/tarp_acq_evidence/空间状态、定量经验及稳定后果学习
+src/tarp_sequence/    知识状态MDP、后果模型、序贯策略与等预算评价
+scripts/             完整流程、核验、诊断、报告和Release数据恢复
+tests/               接口、监督、预算、泄漏与物理机制测试
+configs/             既有实验配置
+docs/                科学问题、规格、计划、结果及执行说明
+requirements/        物理与学习环境依赖
+publication/         代码/输入/运行快照与归档校验
 ```
 
-v2为修正Sobol公共坐标与独立情境序列后的四臂完整对照。共同初始192条、历史候选384条；每臂每seed揭示128条答案，seed42/43/44。该实验属于有限历史缓存上的采集比较。两种学习臂使用相同TD3式双critic，actor不用于本轮动作提出。保留v1作核查，不混选运行结果。
-
-## 独立小验证的复现实验命令
-
-以下会运行新的8条物理分支；已有 `v5_information_sanity_v1` 无需再次执行。请为确需的新实验使用新RunId。
-
-```powershell
-$infoProject = 'D:\博士资料包\科研\科研\AAAI_RL\tarp_37_information_acquisition'
-$infoSource = 'D:\博士资料包\科研\科研\AAAI_RL\tarp_37_risk_audit'
-$infoPhysicalPython = 'D:\博士资料包\科研\科研\AAAI_RL\tarp_risk_discovery\.venv\Scripts\python.exe'
-Set-Location -LiteralPath $infoProject
-$env:PYTHONPATH = Join-Path $infoProject 'src'
-& $infoPhysicalPython -B -u -m tarp_info.native `
-  --source $infoSource --run-id v5_information_sanity_repeat_v1 --workers 4
-
-# 只读重算已存在分支的后续MPC支持区间，不重复交通推演
-& $infoPhysicalPython -B -u .\scripts\opportunity_probe.py `
-  --native-run v5_information_sanity_v1
-
-# 本轮12项新接口/机制测试及5项既有风险、MPC测试
-& $infoPhysicalPython -B -m pytest `
-  .\tests\test_info_acquisition.py .\tests\test_risks.py .\tests\test_mpc.py -q
-```
-
-`src/tarp_info`负责画像、Oracle、采集、版本绑定与真实接续扩展；`scripts/opportunity_probe.py`只读复用原MPC构造器测量方向支持区间。`src/tarp37`继承V5且保持不变。结果分别位于 `artifacts/information/information_pilot_v2` 和 `artifacts/native_information/v5_information_sanity_v1`，二者物理版本及证据用途分别记录。
-
-
-## 第二轮：调度范围、转折与恢复边界
-
-最新结果：[中文报告与三组组合图](docs/boundary_acquisition_2026-11-02/index.html)。162分支/972小时，21个等预算采集臂，预警器和旧模型训练0。
-
-代码在独立的src/tarp_boundary，结果在artifacts/boundary_v2/boundary_formal_s42_v2；前一轮tarp_info及原tarp37保持不变。新库为六个同状态情境、两类动作的12个内点剂量，每个情境另有3条公共初始经验。先真实推演、再用同一Oracle池比较四个主方法和两个组件消融，预警器仍不训练。
-
-```powershell
-Set-Location -LiteralPath 'D:\博士资料包\科研\科研\AAAI_RL\tarp_37_information_acquisition'
-
-# 已完成结果的核验复用；不重新采集、不重新拟合
-powershell -NoProfile -ExecutionPolicy Bypass `
-  -File .\scripts\run_boundary_acquisition.ps1 `
-  -RunId boundary_formal_s42_v2 -Stage fit
-
-# 新完整实验使用新RunId：会调用真实仿真并训练新采集器
-powershell -NoProfile -ExecutionPolicy Bypass `
-  -File .\scripts\run_boundary_acquisition.ps1 `
-  -RunId boundary_repeat_s42_v1 -Stage all -Workers 4
-
-# 只读最终验收
-$env:PYTHONPATH = Join-Path (Get-Location) 'src'
-& '..\tarp_risk_discovery\.venv\Scripts\python.exe' -B `
-  .\scripts\verify_boundary.py `
-  --root .\artifacts\boundary_v2\boundary_formal_s42_v2 --final
-```
-
-本轮设计与操作定义：docs/superpowers/specs/2026-11-02-dispatch-boundary-design.md；执行计划：docs/superpowers/plans/2026-11-02-dispatch-boundary.md。原生采集与域读出运行时不要修改其协议绑定源码。Windows不得用stdin脚本启动ProcessPool；已提供模块入口和PowerShell主流程。
+复现数据按SHA256校验，源码和轻量文档进入Git，状态快照与checkpoint进入Release。两个电脑编辑时先拉取再创建工作分支，避免修改另一台正在运行且被hash冻结的版本。

@@ -1,0 +1,16 @@
+numpy==1.26.4
+scipy==1.16.3
+pandas==2.3.3
+pandapower==3.4.0
+fpowerkit==0.5.0
+feasytools==0.1.7
+networkx==3.6.1
+dill==0.4.1
+cloudpickle==3.1.2
+pyproj==3.7.2
+requests==2.34.2
+sumolib==1.27.1
+libsumo==1.27.1
+matplotlib==3.11.1
+torch==2.8.0
+pytest==9.1.1

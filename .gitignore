@@ -3,4 +3,12 @@ artifacts/
 __pycache__/
 *.pyc
 .superpowers/
+*.log
+.venv/
+.venv-*/
+.env
+.env.*
+*.pem
+*.key
+release_assets/
 

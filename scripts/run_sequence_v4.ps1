@@ -4,6 +4,7 @@ param(
  [ValidateSet('all','finish','learn')][string]$Stage='all',
  [ValidateSet('cpu','cuda')][string]$Device='cuda',
  [int]$Workers=4,
+ [string]$ReportPython='',
  [switch]$Resume
 )
 $ErrorActionPreference='Stop'
@@ -11,6 +12,7 @@ $sequenceProject=Split-Path $PSScriptRoot -Parent
 $sequenceWorkspace=Split-Path $sequenceProject -Parent
 $sequencePhysical=Join-Path $sequenceWorkspace 'tarp_risk_discovery\.venv\Scripts\python.exe'
 $sequenceLearning=Join-Path $sequenceWorkspace 'tarp_x_expert_evaluation\.venv\Scripts\python.exe'
+if(-not $ReportPython){$ReportPython=$sequenceLearning}
 $sequenceRoot=Join-Path $sequenceProject "artifacts\sequence_v4\$RunId"
 Set-Location -LiteralPath $sequenceProject
 $env:PYTHONPATH=Join-Path $sequenceProject 'src';$env:PYTHONUTF8='1'
@@ -77,7 +79,7 @@ if($LASTEXITCODE -ne 0){throw 'Sequence dataset packing failed'}
 if($LASTEXITCODE -ne 0){throw 'Sequence learning/evaluation failed'}
 & $sequenceLearning -B (Join-Path $PSScriptRoot 'diagnose_sequence_v4.py') --root $sequenceRoot
 if($LASTEXITCODE -ne 0){throw 'Sequence component diagnostics failed'}
-& 'D:\anaconda\python.exe' (Join-Path $PSScriptRoot 'report_sequence_v4.py') --root $sequenceRoot
+& $ReportPython (Join-Path $PSScriptRoot 'report_sequence_v4.py') --root $sequenceRoot
 if($LASTEXITCODE -ne 0){throw 'Sequence report failed'}
 & $sequenceLearning -B (Join-Path $PSScriptRoot 'verify_sequence_v4.py') --root $sequenceRoot
 if($LASTEXITCODE -ne 0){throw 'Sequence final verification failed'}
